@@ -33,6 +33,7 @@ class EndTurnCommand:
 class AIDriver:
     """Basic AI agent implementation
     """
+
     def __init__(self, game, ai_constructor):
         """
         Parameters
@@ -56,8 +57,28 @@ class AIDriver:
         try:
             board_copy = copy.deepcopy(self.board)
             players_order_copy = copy.deepcopy(self.game.players_order)
-            with FixedTimer(TIME_LIMIT_CONSTRUCTOR):
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # with FixedTimer(TIME_LIMIT_CONSTRUCTOR):
+            try:
                 self.ai = ai_constructor(self.player_name, board_copy, players_order_copy)
+            except Exception as e:
+                print(e)
+                exit(-1)
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
+            # TODO: REMOVE
         except TimeoutError:
             self.logger.error("The AI failed to construct itself in {}s. Disabling it.".format(TIME_LIMIT_CONSTRUCTOR))
             self.ai_disabled = True
@@ -91,16 +112,36 @@ class AIDriver:
                     self.send_message('end_turn')
                     continue
 
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
                 try:
                     board_copy = copy.deepcopy(self.board)
-                    with self.timer as time_left:
+                    # with self.timer as time_left:
+                    try:
                         command = self.ai.ai_turn(
                             board_copy,
                             self.moves_this_turn,
                             self.turns_finished,
-                            time_left
+                            0
                         )
-                    self.process_command(command)
+                        self.process_command(command)
+                    except Exception as e:
+                        print(e)
+                        exit(-1)
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
+                # TODO: REMOVE
                 except TimeoutError:
                     self.logger.warning("Forced 'end_turn' because of timeout")
                     self.send_message('end_turn')
