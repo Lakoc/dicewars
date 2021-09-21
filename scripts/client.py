@@ -4,6 +4,7 @@ import logging
 from PyQt5.QtWidgets import QApplication
 import sys
 import random
+import configparser
 
 import importlib
 
@@ -33,6 +34,10 @@ def main():
 
     random.seed(args.seed)
 
+    config = configparser.ConfigParser()
+    config.read('dicewars.config')
+    ai_driver_config = config['AI_DRIVER']
+
     log_level = get_logging_level(args)
 
     logging.basicConfig(level=log_level)
@@ -45,7 +50,7 @@ def main():
     game = Game(args.address, args.port, hello_msg)
 
     if args.ai:
-        ai = AIDriver(game, get_ai_constructor(args.ai))
+        ai = AIDriver(game, get_ai_constructor(args.ai), ai_driver_config)
         ai.run()
     else:
         app = QApplication(sys.argv)

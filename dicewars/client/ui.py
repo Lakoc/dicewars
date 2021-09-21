@@ -64,7 +64,6 @@ class MainWindow(QWidget):
         """Draw areas in the game board
         """
         if self.game.draw_battle:
-            self.activated_area_name = None
             self.game.draw_battle = False
         size = self.size()
         x = size.width()
@@ -119,19 +118,25 @@ class MainWindow(QWidget):
                 self.qp.drawLine(line[0][0], line[0][1], line[1][0], line[1][1])
             self.qp.restore()
 
+    def deactivate_area(self):
+        self.activated_area_name = None
+
     def mousePressEvent(self, event):
         hexagon = self.get_hex(event.pos())
+
         try:
             area = self.board.get_area(self.areas_mapping[hexagon])
 
             if self.activated_area_name:
                 if area.get_name() == self.activated_area_name:
-                    self.activated_area_name = None
+                    self.deactivate_area()
                     self.update()
-                elif (area.get_name() in self.activated_area.get_adjacent_areas()
-                     and area.get_owner_name() != self.game.current_player.get_name()):
-                    # attack
-                    self.game.send_message('battle', self.activated_area_name, area.get_name())
+                elif area.get_name() in self.activated_area.get_adjacent_areas():
+                    if area.get_owner_name() != self.game.current_player.get_name():
+                        self.game.send_message('battle', self.activated_area_name, area.get_name())
+                    else:
+                        self.game.send_message('transfer', self.activated_area_name, area.get_name())
+                    self.deactivate_area()
             elif (area.get_owner_name() == self.game.player_name and
                   self.game.player_name == self.game.current_player.get_name()
                   and area.can_attack()):
@@ -359,22 +364,14 @@ class ClientUI(QWidget):
             exit(1)
 
         if msg['type'] == 'battle':
+            self.game.process_battle_msg(msg)
+
             self.game.draw_battle = True
+
             atk_data = msg['result']['atk']
             def_data = msg['result']['def']
-            self.logger.debug(type(atk_data['name']))
-            attacker = self.game.board.get_area(str(atk_data['name']))
-            attacker.set_dice(atk_data['dice'])
-            atk_name = attacker.get_owner_name()
-
-            defender = self.game.board.get_area(def_data['name'])
-            defender.set_dice(def_data['dice'])
-            def_name = defender.get_owner_name()
-
-            if def_data['owner'] == atk_data['owner']:
-                defender.set_owner(atk_data['owner'])
-                self.game.players[atk_name].set_score(msg['score'][str(atk_name)])
-                self.game.players[def_name].set_score(msg['score'][str(def_name)])
+            atk_name = self.game.board.get_area(str(atk_data['name'])).get_owner_name()
+            def_name = self.game.board.get_area(def_data['name']).get_owner_name()
 
             self.game.battle = {
                 'atk_name' : atk_name,
@@ -383,31 +380,13 @@ class ClientUI(QWidget):
                 'def_dice' : def_data['pwr']
             }
 
+        elif msg['type'] == 'transfer':
+            self.game.process_transfer_msg(msg)
+
         elif msg['type'] == 'end_turn':
-            self.logger.debug(msg)
-            areas_to_redraw = []
-            for area in msg['areas']:
-                areas_to_redraw.append(self.game.board.get_area(int(area)))
-
-            for a in areas_to_redraw:
-                self.logger.debug(a)
-            for area in msg['areas']:
-                owner_name = msg['areas'][area]['owner']
-                owner = self.game.players[owner_name]
-
-                area_object = self.game.board.get_area(int(area))
-
-                area_object.set_owner(owner_name)
-                area_object.set_dice(msg['areas'][area]['dice'])
-
-            self.game.players[self.game.current_player_name].deactivate()
-            self.game.current_player_name = msg['current_player']
-            self.game.current_player = self.game.players[msg['current_player']]
+            self.game.process_end_turn_msg(msg)
             self.game.battle = False
-            self.game.players[self.game.current_player_name].activate()
 
-            for i, player in self.game.players.items():
-                player.set_reserve(msg['reserves'][str(i)])
 
         elif msg['type'] == 'game_end':
             if msg['winner'] == self.game.player_name:

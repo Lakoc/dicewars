@@ -48,6 +48,7 @@ class Game:
         self.nb_battles = 0
 
         self.max_dice_per_area = game_config.getint('MaxDicePerArea')
+        self.battle_wear_min = game_config.getint('BattleWearMinimum')
 
         deployment_method = game_config['DeploymentMethod']
         if deployment_method == 'unlimited':
@@ -94,10 +95,12 @@ class Game:
             for i in range(1, self.number_of_players + 1):
                 player = self.players[i]
                 self.send_message(player, 'close_socket')
-        except (BrokenPipeError, JSONDecodeError) as e:
-            self.logger.error("Connection to client failed: {0}".format(e))
+        except BrokenPipeError as e:
+            self.logger.error("Connection to client failed: {0}".format(e), exc_info=True)
+        except JSONDecodeError as e:
+            self.logger.error("Failed to parse the client message: {0}".format(e), exc_info=True)
         except ConnectionResetError:
-            self.logger.error("ConnectionResetError")
+            self.logger.error("ConnectionResetError", exc_info=True)
 
         try:
             self.close_connections()
@@ -140,6 +143,15 @@ class Game:
             affected_areas = self.end_turn()
             for p in self.players:
                 self.send_message(self.players[p], 'end_turn', areas=affected_areas)
+
+        elif msg['type'] == 'transfer':
+            self.nb_consecutive_end_of_turns = 0
+            transfer = self.transfer(self.board.get_area_by_name(msg['src']), self.board.get_area_by_name(msg['dst']))
+            for p in self.players:
+                self.send_message(self.players[p], 'transfer', transfer=transfer)
+
+        else:
+            self.logger.warning(f'Unexpected message type: {msg["type"]}')
 
     def get_state(self):
         """Get game state
@@ -221,14 +233,46 @@ class Game:
             }
 
         else:
+            battle_wear = atk_dice // self.battle_wear_min
+            def_dice_left = max(1, def_dice - battle_wear)
+            defender.set_dice(def_dice_left)
             battle['def'] = {
                 'name': defender.get_name(),
-                'dice': def_dice,
+                'dice': def_dice_left,
                 'owner': def_name,
                 'pwr': def_pwr
             }
 
         return battle
+
+    def transfer(self, source, destination):
+        """Carry out a transfer
+
+        Returns
+        -------
+        dict
+            Dictionary with the result of the transfer
+        """
+        src_dice = source.get_dice()
+        dst_dice = destination.get_dice()
+
+        dice_moved = min(self.max_dice_per_area - dst_dice, src_dice - 1)
+
+        source.set_dice(src_dice - dice_moved)
+        destination.set_dice(dst_dice + dice_moved)
+
+        transfer = {
+            'src': {
+                'name': source.get_name(),
+                'dice': source.get_dice(),
+            },
+            'dst': {
+                'name': destination.get_name(),
+                'dice': destination.get_dice(),
+            }
+        }
+
+        return transfer
 
     def end_turn(self):
         """Handles end turn command
@@ -376,10 +420,10 @@ class Game:
         """
         raw_message = self.client_sockets[player].recv(self.buffer)
         msg = json.loads(raw_message.decode())
-        self.logger.debug("Got message from client {}; type: {}".format(player, msg['type']))
+        self.logger.debug("Got message from client {}: {}".format(player, msg))
         return msg
 
-    def send_message(self, client, type, battle=None, winner=None, areas=None):
+    def send_message(self, client, type, battle=None, winner=None, areas=None, transfer=None):
         """Send message to a client
 
         Parameters
@@ -416,6 +460,11 @@ class Game:
             msg = self.get_state()
             msg['type'] = 'battle'
             msg['result'] = battle
+
+        elif type == 'transfer':
+            msg = self.get_state()
+            msg['type'] = 'transfer'
+            msg['result'] = transfer
 
         elif type == 'end_turn':
             msg = self.get_state()
