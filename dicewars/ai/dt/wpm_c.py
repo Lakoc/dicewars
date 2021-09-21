@@ -16,7 +16,7 @@ class AI:
     and scores is used. The agent choses such moves, that will have the highest
     improvement in the estimated probability.
     """
-    def __init__(self, player_name, board, players_order):
+    def __init__(self, player_name, board, players_order, max_transfers):
         """
         Parameters
         ----------
@@ -63,7 +63,7 @@ class AI:
         }[self.players]
         numpy.warnings.filterwarnings('ignore')
 
-    def ai_turn(self, board, nb_moves_this_turn, nb_turns_this_game, time_left):
+    def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         """AI agent's turn
 
         This agent estimates probability to win the game from the feature vector associated

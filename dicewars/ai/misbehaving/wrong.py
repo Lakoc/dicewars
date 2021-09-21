@@ -1,7 +1,5 @@
+import random
 import logging
-from random import shuffle
-
-from ..utils import possible_attacks
 
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand
 
@@ -27,10 +25,10 @@ class AI:
         Get a random area. If it has a possible move, the agent will do it.
         If there are no more moves, the agent ends its turn.
         """
-        attacks = list(possible_attacks(board, self.player_name))
-        shuffle(attacks)
-        for source, target in attacks:
-            return BattleCommand(source.get_name(), target.get_name())
+        if nb_moves_this_turn == 2:
+            self.logger.debug("I'm too well behaved. Let others play now.")
+            return EndTurnCommand()
 
-        self.logger.debug("No more possible turns.")
-        return EndTurnCommand()
+        source = random.choice(list(range(25)))
+        target = random.choice(list(range(25)))
+        return BattleCommand(source, target)

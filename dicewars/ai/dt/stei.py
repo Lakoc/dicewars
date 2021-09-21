@@ -13,7 +13,7 @@ class AI:
     gams and higher than 40% in four-player games. In addition, it prefers
     attacks initiated from its largest region.
     """
-    def __init__(self, player_name, board, players_order):
+    def __init__(self, player_name, board, players_order, max_transfers):
         """
         Parameters
         ----------
@@ -40,7 +40,7 @@ class AI:
 
         self.largest_region = []
 
-    def ai_turn(self, board, nb_moves_this_turn, nb_turns_this_game, time_left):
+    def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         """AI agent's turn
 
         Agent gets a list preferred moves and makes such move that has the

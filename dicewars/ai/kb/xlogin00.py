@@ -1,6 +1,8 @@
 import random
 import logging
 
+from dicewars.ai.utils import possible_attacks
+
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand
 
 
@@ -10,7 +12,7 @@ class AI:
     This agent performs all possible moves in random order
     """
 
-    def __init__(self, player_name, board, players_order):
+    def __init__(self, player_name, board, players_order, max_transfers):
         """
         Parameters
         ----------
@@ -19,7 +21,7 @@ class AI:
         self.player_name = player_name
         self.logger = logging.getLogger('AI')
 
-    def ai_turn(self, board, nb_moves_this_turn, nb_turns_this_game, time_left):
+    def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         """AI agent's turn
 
         Get a random area. If it has a possible move, the agent will do it.
@@ -29,6 +31,10 @@ class AI:
             self.logger.debug("I'm too well behaved. Let others play now.")
             return EndTurnCommand()
 
-        source = random.choice(list(range(25)))
-        target = random.choice(list(range(25)))
-        return BattleCommand(source, target)
+        attacks = list(possible_attacks(board, self.player_name))
+        if attacks:
+            source, target = random.choice(attacks)
+            return BattleCommand(source.get_name(), target.get_name())
+        else:
+            self.logger.debug("No more possible turns.")
+            return EndTurnCommand()
