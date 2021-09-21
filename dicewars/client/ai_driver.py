@@ -1,8 +1,9 @@
 import copy
+import inspect
 import json
-from json.decoder import JSONDecodeError
 import logging
 import signal
+from json.decoder import JSONDecodeError
 
 from .timers import FischerTimer, FixedTimer
 
@@ -30,10 +31,19 @@ class EndTurnCommand:
     pass
 
 
+def function_accepts_kwargs(func):
+    """
+    Returns True if func accepts **kwargs as one of its parameters.
+    """
+    return any(param for param in inspect.signature(func).parameters.values()
+               if param.kind == param.VAR_KEYWORD)
+
+
 class AIDriver:
     """Basic AI agent implementation
     """
-    def __init__(self, game, ai_constructor):
+
+    def __init__(self, game, ai_constructor, **kwargs):
         """
         Parameters
         ----------
@@ -57,7 +67,10 @@ class AIDriver:
             board_copy = copy.deepcopy(self.board)
             players_order_copy = copy.deepcopy(self.game.players_order)
             with FixedTimer(TIME_LIMIT_CONSTRUCTOR):
-                self.ai = ai_constructor(self.player_name, board_copy, players_order_copy)
+                if function_accepts_kwargs(ai_constructor):
+                    self.ai = ai_constructor(self.player_name, board_copy, players_order_copy, **kwargs)
+                else:
+                    self.ai = ai_constructor(self.player_name, board_copy, players_order_copy)
         except TimeoutError:
             self.logger.error("The AI failed to construct itself in {}s. Disabling it.".format(TIME_LIMIT_CONSTRUCTOR))
             self.ai_disabled = True
