@@ -10,7 +10,7 @@ class AI:
     This agent prefers moves with highest strength difference
     and doesn't make moves against areas with higher strength.
     """
-    def __init__(self, player_name, board, players_order):
+    def __init__(self, player_name, board, players_order, max_transfers):
         """
         Parameters
         ----------
@@ -23,7 +23,7 @@ class AI:
         self.player_name = player_name
         self.logger = logging.getLogger('AI')
 
-    def ai_turn(self, board, nb_moves_this_turn, nb_turns_this_game, time_left):
+    def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         """AI agent's turn
 
         Creates a list with all possible moves along with associated strength
