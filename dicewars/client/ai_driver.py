@@ -37,19 +37,11 @@ class EndTurnCommand:
     pass
 
 
-def function_accepts_kwargs(func):
-    """
-    Returns True if func accepts **kwargs as one of its parameters.
-    """
-    return any(param for param in inspect.signature(func).parameters.values()
-               if param.kind == param.VAR_KEYWORD)
-
-
 class AIDriver:
     """Basic AI agent implementation
     """
 
-    def __init__(self, game, ai_constructor, config, **kwargs):
+    def __init__(self, game, ai_constructor, config):
         """
         Parameters
         ----------
@@ -75,12 +67,8 @@ class AIDriver:
             board_copy = copy.deepcopy(self.board)
             players_order_copy = copy.deepcopy(self.game.players_order)
             with FixedTimer(TIME_LIMIT_CONSTRUCTOR):
-                if function_accepts_kwargs(ai_constructor):
-                    self.ai = ai_constructor(self.player_name, board_copy, players_order_copy,
-                                             max_transfers=self.max_transfers_per_turn, **kwargs)
-                else:
-                    self.ai = ai_constructor(self.player_name, board_copy, players_order_copy,
-                                             max_transfers=self.max_transfers_per_turn)
+                self.ai = ai_constructor(self.player_name, board_copy, players_order_copy,
+                                         max_transfers=self.max_transfers_per_turn)
 
         except TimeoutError:
             self.logger.error("The AI failed to construct itself in {}s. Disabling it.".format(TIME_LIMIT_CONSTRUCTOR))

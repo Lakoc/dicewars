@@ -1,13 +1,17 @@
 import json
-from json.decoder import JSONDecodeError
 import logging
 import random
-import numpy as np
 import socket
 import sys
+import os
+from json.decoder import JSONDecodeError
 
+import numpy as np
+
+from agent.features import FeatureExtractor
+from agent.trainers.replay_memory import define_replay_buffer
+from .board import Board
 from .player import Player
-
 from .summary import GameSummary
 
 MAX_PASS_ROUNDS = 8
@@ -17,6 +21,7 @@ MAX_BATTLES_PER_GAME = 10000  # obsevered maximum of 5671 over over 100k games
 class Game:
     """Instance of the game
     """
+
     def __init__(self, board, area_ownership, players, game_config, addr, port, nicknames_order):
         """Initialize game and connect clients
 
@@ -60,7 +65,7 @@ class Game:
 
         self.create_socket()
 
-        self.board = board
+        self.board: Board = board
         self.initialize_players()
 
         self.connect_clients()
@@ -75,6 +80,26 @@ class Game:
             self.send_message(player, 'game_start')
 
         self.summary = GameSummary()
+
+        with open('./agent/configs/qactorcritic.json', 'r') as config_file:
+            config = json.load(config_file)
+        width = config['architecture']['matrix_width']
+        self.our_agent_name = 1
+        self._feature_extractor = FeatureExtractor()
+        self._feature_extractor.initialize(player_name=self.our_agent_name, board=board,
+                                           target_shape=[width, width])
+
+        self._replay_buffer = define_replay_buffer(self.get_input_shape(config),
+                                                   config['train']['batch_size'],
+                                                   './agent/buffers')
+        self._replay_buffer.enable_file_saving()
+
+    def get_input_shape(self, config):
+        arch_config = config['architecture']
+        size = arch_config['matrix_width']
+        in_channels = arch_config['input_channels']
+        input_shape = [size, size, in_channels]
+        return input_shape
 
     def run(self):
         """Main loop of the game
@@ -126,7 +151,13 @@ class Game:
     def handle_player_turn(self):
         """Handle clients message and carry out the action
         """
-        self.logger.debug("Handling player {} ({}) turn".format(self.current_player.get_name(), self.current_player.nickname))
+        save_to_buffer = self.current_player.get_name() == self.our_agent_name
+        action = None
+        if save_to_buffer:
+            state = self._feature_extractor.extract_features(self.board)
+
+        self.logger.debug(
+            "Handling player {} ({}) turn".format(self.current_player.get_name(), self.current_player.nickname))
         player = self.current_player.get_name()
         msg = self.get_message(player)
 
@@ -137,6 +168,10 @@ class Game:
             self.logger.debug("Battle result: {}".format(battle))
             for p in self.players:
                 self.send_message(self.players[p], 'battle', battle=battle)
+
+            atk_area_idx = self.board.get_area_index_by_name(msg['atk'])
+            def_area_idx = self.board.get_area_index_by_name(msg['def'])
+            action = np.array([atk_area_idx, def_area_idx, 0], np.int32)
 
         elif msg['type'] == 'end_turn':
             self.nb_consecutive_end_of_turns += 1
@@ -150,8 +185,22 @@ class Game:
             for p in self.players:
                 self.send_message(self.players[p], 'transfer', transfer=transfer)
 
+            src_area_idx = self.board.get_area_index_by_name(msg['src'])
+            dst_area_idx = self.board.get_area_index_by_name(msg['dst'])
+            action = np.array([src_area_idx, dst_area_idx, 1], np.int32)
+
         else:
             self.logger.warning(f'Unexpected message type: {msg["type"]}')
+
+        self.logger.debug(F"Action: {action}")
+        if save_to_buffer and action is not None:
+            next_state = self._feature_extractor.extract_features(self.board)
+
+            record = (state, action, np.float32(0), next_state)
+            self._replay_buffer.add_single(record)
+        else:
+            pass
+
 
     def get_state(self):
         """Get game state
@@ -371,7 +420,8 @@ class Game:
             True if a player has won, False otherwise
         """
         if self.nb_consecutive_end_of_turns // self.nb_players_alive == MAX_PASS_ROUNDS:
-            self.logger.info("Game cancelled because the limit of {} rounds of passing has been reached".format(MAX_PASS_ROUNDS))
+            self.logger.info(
+                "Game cancelled because the limit of {} rounds of passing has been reached".format(MAX_PASS_ROUNDS))
             for p in self.players.values():
                 if p.get_number_of_areas() > 0:
                     self.eliminate_player(p.get_name())
@@ -380,7 +430,8 @@ class Game:
             return True
 
         if self.nb_battles == MAX_BATTLES_PER_GAME:
-            self.logger.info("Game cancelled because the limit of {} battles has been reached".format(MAX_BATTLES_PER_GAME))
+            self.logger.info(
+                "Game cancelled because the limit of {} battles has been reached".format(MAX_BATTLES_PER_GAME))
             for p in self.players.values():
                 if p.get_number_of_areas() > 0:
                     self.eliminate_player(p.get_name())
@@ -588,14 +639,15 @@ class Game:
         """Assigns areas to players at the start of the game
         """
 
-        assert(len(ownership) == self.board.get_number_of_areas())
+        assert (len(ownership) == self.board.get_number_of_areas())
 
         for area_name, player_name in ownership.items():
             area = self.board.get_area_by_name(area_name)
             self.assign_area(area, self.players[player_name])
 
     def adjust_player_order(self, nicknames_order):
-        renumbering = {old_name: nicknames_order.index(player.nickname)+1 for old_name, player in self.players.items()}
+        renumbering = {old_name: nicknames_order.index(player.nickname) + 1 for old_name, player in
+                       self.players.items()}
 
         self.players = {renumbering[old_name]: player for old_name, player in self.players.items()}
         for name, player in self.players.items():
@@ -604,8 +656,8 @@ class Game:
         self.client_sockets = {renumbering[old_name]: socket for old_name, socket in self.client_sockets.items()}
 
         registered_nicknames_rev = {player.nickname: player_name for player_name, player in self.players.items()}
-        assert(len(nicknames_order) == len(registered_nicknames_rev))
-        assert(set(nicknames_order) == set(registered_nicknames_rev.keys()))
+        assert (len(nicknames_order) == len(registered_nicknames_rev))
+        assert (set(nicknames_order) == set(registered_nicknames_rev.keys()))
 
         self.players_order = []
         for nick in nicknames_order:
@@ -614,7 +666,8 @@ class Game:
         self.set_first_player()
 
     def report_player_order(self):
-        self.logger.info('Player order: {}'.format([(name, self.players[name].nickname) for name in self.players_order]))
+        self.logger.info(
+            'Player order: {}'.format([(name, self.players[name].nickname) for name in self.players_order]))
 
 
 class UnlimitedDeployment:
@@ -631,10 +684,10 @@ class LimitedDeployment:
         incs = max_val * np.ones(len(xs), dtype=np.int)
 
         for i in range(1, 5):
-            incs -= np.heaviside(xs - i*7 - 0.5, 1).astype(np.int)
+            incs -= np.heaviside(xs - i * 7 - 0.5, 1).astype(np.int)
 
         self.vals = np.cumsum(incs)
 
     def __call__(self, player):
         nb_areas = len(player.get_areas())
-        return int(self.vals[nb_areas-1])
+        return int(self.vals[nb_areas - 1])

@@ -40,6 +40,21 @@ class Board:
             if name == self.areas[a].get_name():
                 return self.areas[a]
 
+    def get_area_index_by_name(self, name):
+        """Gets an index of an Area by its nam
+
+        Parameters
+        ----------
+        name : int
+            Area's name
+
+        Returns
+        -------
+        index
+            Index of the area in the dictionary
+        """
+        return list(self.areas.keys()).index(name)
+
     def get_board(self):
         """Get dictionary listing adjacent areas for each area
 
