@@ -2,10 +2,11 @@ import json
 import logging
 
 import numpy as np
-from agent.models.fcn import FCN
+
 from agent.features import FeatureExtractor
+from agent.policies.epsilon_greedy import epsilon_greedy
 from agent.trainers.q_actor_critic_trainer import build_model
-from agent.trainers.replay_memory import define_replay_buffer
+from agent.utils import read_iteration_from_file
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 
 
@@ -25,8 +26,8 @@ class AI:
         self.logger = logging.getLogger('AI')
 
         with open('./agent/configs/qactorcritic.json', 'r') as config_file:
-            config = json.load(config_file)
-        arch_config = config['architecture']
+            self.config = json.load(config_file)
+        arch_config = self.config['architecture']
         width = arch_config['matrix_width']
 
         # Load a model
@@ -37,6 +38,8 @@ class AI:
         self.feature_extractor = FeatureExtractor()
         self.feature_extractor.initialize(player_name, board, target_shape=[width, width])
 
+        self.iteration = read_iteration_from_file(self.config)
+
     def ai_turn(self, board, nb_moves_this_turn, nb_turns_this_game, time_left):
         """AI agent's turn
 
@@ -45,8 +48,11 @@ class AI:
         """
         features = self.feature_extractor.extract_features(board)
         q_values = self.model(features)
-        action = self.select_valid_action(q_values, features)
-        # Correct indices
+        action = epsilon_greedy(q_values, self.iteration,
+                       eps_min=self.config['eps_min'],
+                       eps_max=self.config['eps_max'],
+                       eps_decay_steps=self.config['eps_decay_steps'])
+        # Correct indices (areas' name starts at 1)
         action += [1, 1, 0]
 
         if action is None:
