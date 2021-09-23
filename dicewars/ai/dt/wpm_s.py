@@ -96,7 +96,7 @@ class AI:
             if area_name in self.largest_region:
                 increase_score = True
             else:
-                for n in target.get_adjacent_areas():
+                for n in target.get_adjacent_areas_names():
                     if n in self.largest_region:
                         increase_score = True
                         break

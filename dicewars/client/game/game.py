@@ -1,5 +1,4 @@
 import json
-from json.decoder import JSONDecodeError
 import logging
 import socket
 from queue import Queue
@@ -73,7 +72,7 @@ class Game:
     ##################
     def add_players(self, number_of_players, score):
         """Create Players instances
-        
+
         Parameters
         ----------
         number_of_players : int

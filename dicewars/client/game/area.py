@@ -22,7 +22,7 @@ class Area:
         self.neighbours = [int(n) for n in neighbours]
         self.hexes = [[int(i) for i in h] for h in hexes]
 
-    def get_adjacent_areas(self) -> List[int]:
+    def get_adjacent_areas_names(self) -> List[int]:
         """Return names of adjacent areas
         """
         return self.neighbours

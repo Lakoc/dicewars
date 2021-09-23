@@ -15,6 +15,7 @@ area_descriptors = [
 ]
 
 
+# This is meant to be monkey-patched from the debugger script
 def on_area_activation(area_name):
     return ''
 
@@ -87,14 +88,9 @@ def mousePressEvent_monkeypatch(self, event):
     try:
         area = self.board.get_area(self.areas_mapping[hexagon])
 
-        if self.activated_area_name:
-            if area.get_name() == self.activated_area_name:
-                self.activated_area_name = None
-                self.update()
-        else:
-            self.activated_area_name = area.get_name()
-            self.activated_area = area
-            self.update()
-            sys.stdout.write(on_area_activation(self.activated_area))
+        self.activated_area_name = area.get_name()
+        self.activated_area = area
+        self.update()
+        sys.stdout.write(on_area_activation(self.activated_area))
     except KeyError:
         pass

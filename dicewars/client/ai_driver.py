@@ -16,11 +16,6 @@ def TimeoutHandler(signum, handler):
     raise TimeoutError('')
 
 
-TIME_LIMIT_CONSTRUCTOR = 10.0  # in seconds, for AI constructor
-FISCHER_INIT = 10.0  # seconds
-FISCHER_INCREMENT = 0.25  # seconds
-
-
 class BattleCommand:
     def __init__(self, source_name, target_name):
         self.source_name = source_name
@@ -60,18 +55,24 @@ class AIDriver:
 
         signal.signal(signal.SIGALRM, TimeoutHandler)
 
-        self.max_transfers_per_turn = (config.getint('MaxTransfersPerTurn'))
+        self.max_transfers_per_turn = config.getint('MaxTransfersPerTurn')
+        time_limit_constructor = config.getfloat('TimeLimitConstructor')
+        fischer_init = config.getfloat('FischerInit')
+        fischer_increment = config.getfloat('FischerIncrement')
 
         self.ai_disabled = False
         try:
             board_copy = copy.deepcopy(self.board)
             players_order_copy = copy.deepcopy(self.game.players_order)
-            with FixedTimer(TIME_LIMIT_CONSTRUCTOR):
-                self.ai = ai_constructor(self.player_name, board_copy, players_order_copy,
-                                         max_transfers=self.max_transfers_per_turn)
-
+            with FixedTimer(time_limit_constructor):
+                self.ai = ai_constructor(
+                    self.player_name,
+                    board_copy,
+                    players_order_copy,
+                    max_transfers=self.max_transfers_per_turn,
+                )
         except TimeoutError:
-            self.logger.error("The AI failed to construct itself in {}s. Disabling it.".format(TIME_LIMIT_CONSTRUCTOR))
+            self.logger.error("The AI failed to construct itself in {}s. Disabling it.".format(time_limit_constructor))
             self.ai_disabled = True
         except Exception:
             self.logger.error("The AI crashed during construction:\n", exc_info=True)
@@ -82,7 +83,7 @@ class AIDriver:
         self.transfers_this_turn = 0
         self.turns_finished = 0
 
-        self.timer = FischerTimer(FISCHER_INIT, FISCHER_INCREMENT)
+        self.timer = FischerTimer(fischer_init, fischer_increment)
 
     def run(self):
         """Main AI agent loop
@@ -248,7 +249,7 @@ class AIDriver:
             self.ai_disabled = True
             return False
 
-        if battle.target_name not in source_area.get_adjacent_areas():
+        if battle.target_name not in source_area.get_adjacent_areas_names():
             self.logger.error('Attempted to attack from area {} area {} which is not adjacent.'.format(
                 battle.source_name, battle.target_name
             ))
@@ -293,7 +294,7 @@ class AIDriver:
             self.ai_disabled = True
             return False
 
-        if transfer.target_name not in source_area.get_adjacent_areas():
+        if transfer.target_name not in source_area.get_adjacent_areas_names():
             self.logger.error('Attempted to transfer from area {} to area {} which is not adjacent.'.format(
                 transfer.source_name, transfer.target_name
             ))

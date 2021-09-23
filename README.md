@@ -32,7 +32,7 @@ As an easy way of setting up the environment, do the following:
     # setup
     . path.sh
     # try a game
-    python3 ./scripts/dicewars-human.py --ai dt.sdc dt.rand xlogin00 xlogin42
+    python3 ./scripts/dicewars-human.py --ai dt.sdc dt.rand kb.xlogin00 kb.xlogin42
 
 
 ## Running the game
@@ -54,11 +54,11 @@ Starts a human-controlled client along those driven by AIs.
 There can be between 1 and 7 AIs.
 For an easy game (beware, defeat is still a real possibility), try:
 
-    python3 ./scripts/dicewars-human.py --ai dt.sdc dt.rand xlogin00 xlogin42
+    python3 ./scripts/dicewars-human.py --ai dt.sdc dt.rand kb.xlogin00 kb.xlogin42
 
 For a really challenging setup, try:
 
-    python3 ./scripts/dicewars-human.py --ai dt.sdc dt.ste dt.stei dt.wpm_c
+    python3 ./scripts/dicewars-human.py --ai kb.sdc_at dt.ste dt.stei dt.wpm_c
 
 ### Playing with fixed AI order
 Starts a set of games between AIs in given order.
@@ -71,7 +71,7 @@ Additionally exposes these options:
 
 An example:
 
-    python3 ./scripts/dicewars-ai-only.py -r -b 11 -o 22 -s 33 -c 44 -n 10 -l ../logs --ai dt.stei xlogin42
+    python3 ./scripts/dicewars-ai-only.py -r -b 11 -o 22 -s 33 -c 44 -n 10 -l ../logs --ai dt.stei kb.xlogin42
 
 ### Running a tournament
 Keeps picking a subset of AIs of specified size and has them play together.
@@ -124,13 +124,15 @@ The constructor is expected to take following parameters:
     player_name     the name of the player this AI will control
     board           an instance of dicewars.client.game.Board
     players_order   in what order do players take turns
+    max_transfers   number of transfers allowed in a single turn
 
 The turn making method is expected to take following parameters:
 
-    board               an instance of dicewars.client.game.Board   
-    nb_moves_this_turn  number of attacks made in this turn
-    nb_turns_this_game  number of turns ended so far
-    previous_time_left  time (in seconds) left after last decision making
+    board                   an instance of dicewars.client.game.Board   
+    nb_moves_this_turn      number of attacks made in this turn
+    nb_transfers_this_turn  number of transfers made in this turn
+    nb_turns_this_game      number of turns ended so far
+    previous_time_left      time (in seconds) left after last decision making
 
 The ``AI.ai_turn()`` is required to return an instance of ``BattleCommand`` or ``EndTurnCommand``.
 
@@ -138,7 +140,7 @@ Multi-module implementation is possible, see ``xlogin42`` for an example.
 
 ## Learning about the world
 Board's ``get_player_areas()``, ``get_player_border()``, and ``get_players_regions()`` can be used to discover areas belonging to any player in the game.
-Instances of ``Area`` then allow further inquiry through ``get_adjacent_areas()``, ``get_owner_name()`` and ``get_dice()``.
+Instances of ``Area`` then allow further inquiry through ``get_adjacent_areas_names()``, ``get_owner_name()`` and ``get_dice()``.
 
 It may also be practical to acquire all possible moves from ``dicewars.ai.utils.possible_attacks()``.
 This module also provides formulas for probability of conquering and holding an Area.

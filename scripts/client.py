@@ -9,7 +9,7 @@ import configparser
 import importlib
 
 from dicewars.client.game.game import Game
-from dicewars.client.ui import ClientUI
+from dicewars.client import ui
 from dicewars.client.ai_driver import AIDriver
 
 from utils import get_logging_level, get_nickname
@@ -38,10 +38,11 @@ def main():
     config.read('dicewars.config')
     ai_driver_config = config['AI_DRIVER']
 
+    ui.MAX_TRANSFERS_PER_TURN = ai_driver_config.getint('MaxTransfersPerTurn')
+
     log_level = get_logging_level(args)
 
     logging.basicConfig(level=log_level)
-    logger = logging.getLogger('CLIENT')
 
     hello_msg = {
         'type': 'client_desc',
@@ -54,7 +55,7 @@ def main():
         ai.run()
     else:
         app = QApplication(sys.argv)
-        ui = ClientUI(game)
+        human_ui = ui.ClientUI(game)
         sys.exit(app.exec_())
 
 

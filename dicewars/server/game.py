@@ -14,9 +14,6 @@ from .board import Board
 from .player import Player
 from .summary import GameSummary
 
-MAX_PASS_ROUNDS = 8
-MAX_BATTLES_PER_GAME = 10000  # obsevered maximum of 5671 over over 100k games
-
 
 class Game:
     """Instance of the game
@@ -52,7 +49,12 @@ class Game:
         self.nb_consecutive_end_of_turns = 0
         self.nb_battles = 0
 
+        self.reserve_production_cap = game_config.getint('ReserveProductionCap')
+        self.reserve_type = game_config.get('ReserveType')
+        self.reserve_cap = game_config.getint('ReserveSizeCap')
         self.max_dice_per_area = game_config.getint('MaxDicePerArea')
+        self.max_pass_rounds = game_config.getint('MaximumNoBattleRounds')
+        self.max_battles_per_game = game_config.getint('MaximumBattlesPerGame')
         self.battle_wear_min = game_config.getint('BattleWearMinimum')
 
         deployment_method = game_config['DeploymentMethod']
@@ -332,6 +334,20 @@ class Game:
 
         deployable_dice, reserve_dice = self.get_player_dice(self.current_player)
         affected_areas = self.distribute_player_dice(self.current_player, deployable_dice)
+
+        if self.reserve_type == 'constant':
+            if reserve_dice > self.reserve_cap:
+                reserve_dice = self.reserve_cap
+        elif self.reserve_type == 'complement':
+            reserve_cap = self.reserve_cap - len(self.current_player.get_areas())
+            if reserve_dice > reserve_cap:
+                reserve_dice = reserve_cap
+        else:
+            raise ValueError(f'Unsupported reserve type: {self.reserve_type}')
+
+        if reserve_dice < 0:
+            reserve_dice = 0
+
         self.current_player.set_reserve(reserve_dice)
 
         self.set_next_player()
@@ -347,8 +363,8 @@ class Game:
 
     def get_player_dice(self, player):
         free_dice = player.get_reserve() + player.get_largest_region(self.board)
-        if free_dice > 64:
-            free_dice = 64
+        if free_dice > self.reserve_production_cap:
+            free_dice = self.reserve_production_cap
 
         dice_deployed = sum(a.get_dice() for a in player.get_areas())
         max_deployed = self.max_deployed_dice(player)
@@ -417,9 +433,8 @@ class Game:
         bool
             True if a player has won, False otherwise
         """
-        if self.nb_consecutive_end_of_turns // self.nb_players_alive == MAX_PASS_ROUNDS:
-            self.logger.info(
-                "Game cancelled because the limit of {} rounds of passing has been reached".format(MAX_PASS_ROUNDS))
+        if self.nb_consecutive_end_of_turns // self.nb_players_alive == self.max_pass_rounds:
+            self.logger.info("Game cancelled because the limit of {} rounds of passing has been reached".format(self.max_pass_rounds))
             for p in self.players.values():
                 if p.get_number_of_areas() > 0:
                     self.eliminate_player(p.get_name())
@@ -427,9 +442,8 @@ class Game:
             self.process_win(None, -1)
             return True
 
-        if self.nb_battles == MAX_BATTLES_PER_GAME:
-            self.logger.info(
-                "Game cancelled because the limit of {} battles has been reached".format(MAX_BATTLES_PER_GAME))
+        if self.nb_battles == self.max_battles_per_game:
+            self.logger.info("Game cancelled because the limit of {} battles has been reached".format(self.max_battles_per_game))
             for p in self.players.values():
                 if p.get_number_of_areas() > 0:
                     self.eliminate_player(p.get_name())

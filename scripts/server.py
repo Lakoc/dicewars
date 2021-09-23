@@ -38,28 +38,29 @@ def continuous_area_player_mapping(nb_players, board):
     def unassigned_neighbours(area):
         return {area for area in board.get_area_by_name(area_no).get_adjacent_areas_names() if area in unassigned_areas}
 
-    player_available = dict()
-    for player_no in range(1, nb_players+1):
-        area_no = random.choice(list(unassigned_areas))
+    def assign_area(area_no, player):
         assignment[area_no] = player_no
         unassigned_areas.remove(area_no)
-        player_available[player_no] = unassigned_neighbours(area_no)
+
+    available_to_player = dict()
+    for player_no in range(1, nb_players+1):
+        area_no = random.choice(list(unassigned_areas))
+        assign_area(area_no, player_no)
+        available_to_player[player_no] = unassigned_neighbours(area_no)
 
     while unassigned_areas:
         player_no = next(player_cycle)
-        player_available[player_no] &= unassigned_areas
-        if player_available[player_no]:
-            area_no = random.choice(list(player_available[player_no]))
-        else:
-            logging.info(f"Having to start a new region for player {player_no}")
-            area_no = random.choice(list(unassigned_areas))
+        available_to_player[player_no] &= unassigned_areas
 
-        assignment[area_no] = player_no
-        unassigned_areas.remove(area_no)
-        if player_available[player_no]:
-            player_available[player_no].remove(area_no)
+        if not available_to_player[player_no]:
+            logging.info(f"Player {player_no} has no options more")
+            continue
 
-        player_available[player_no] |= unassigned_neighbours(area_no)
+        area_no = random.choice(list(available_to_player[player_no]))
+        assign_area(area_no, player_no)
+        available_to_player[player_no].remove(area_no)
+
+        available_to_player[player_no] |= unassigned_neighbours(area_no)
 
     return assignment
 
@@ -68,18 +69,16 @@ def players_areas(ownership, the_player):
     return [area for area, player in ownership.items() if player == the_player]
 
 
-def assign_dice_flat(board, nb_players, ownership):
+def assign_dice_flat(board, nb_players, ownership, dice_density):
     for area in board.areas.values():
-        area.set_dice(3)
+        area.set_dice(dice_density)
 
 
-def assign_dice_random(board, nb_players, ownership, max_dice_per_area=8):
-    dice_total = 3 * board.get_number_of_areas() - random.randint(0, 5)
-    players_processed = 0
+def assign_dice_random(board, nb_players, ownership, dice_density, max_dice_per_area=8):
+    dice_total = dice_density * board.get_number_of_areas()
 
     for player in range(1, nb_players+1):
-        player_dice = int(round(dice_total / (nb_players - players_processed)))
-        dice_total -= player_dice
+        player_dice = dice_total // nb_players
 
         available_areas = [board.get_area_by_name(area_name) for area_name in players_areas(ownership, player)]
 
@@ -88,15 +87,13 @@ def assign_dice_random(board, nb_players, ownership, max_dice_per_area=8):
             area.set_dice(1)
             player_dice -= 1
 
-        while player_dice and available_areas:
+        while player_dice >= 0 and available_areas:
             area = random.choice(available_areas)
             if area.get_dice() >= max_dice_per_area:
                 available_areas.remove(area)
             else:
                 area.dice += 1
                 player_dice -= 1
-
-        players_processed += 1
 
 
 def create_board(board_config):
@@ -118,10 +115,16 @@ def produce_area_assignment(board_config, board, nb_players):
 
 def assign_dice(board_config, board, nb_players, area_ownership):
     dice_assignment_method = board_config.get('DiceAssignment')
+    dice_density = board_config.getint('DiceDensity')
     if dice_assignment_method == 'orig':
-        assign_dice_random(board, nb_players, area_ownership)
+        assign_dice_random(
+            board=board,
+            nb_players=nb_players,
+            ownership=area_ownership,
+            dice_density=dice_density,
+        )
     elif dice_assignment_method == 'flat':
-        assign_dice_flat(board, nb_players, area_ownership)
+        assign_dice_flat(board, nb_players, area_ownership, dice_density)
     else:
         raise ValueError(f'Unsupport dice assignment method "{dice_assignment_method}"')
 

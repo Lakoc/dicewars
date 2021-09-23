@@ -1,27 +1,30 @@
 import hexutil
-import json
 from json.decoder import JSONDecodeError
 import logging
-from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
-from PyQt5.QtGui import QPainter, QColor, QPolygon, QPen, QBrush, QFont
+from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton
+from PyQt5.QtGui import QPainter, QColor, QPolygon, QPen, QFont
 from PyQt5.QtCore import QPoint, Qt, QRectF, QTimer
-from random import randint
-from time import sleep
-import sys
+
+
+# dirty hack to limit the number of transfers per turn even for humans
+# The limit needs to be set by user of the module (client script)
+MAX_TRANSFERS_PER_TURN = None
+# The running counter is handled by MainWindow.mousePressEvent (increments) and ClientUI.handle_end_turn_button (clearing)
+nb_transfers_this_turn = 0
 
 
 def player_color(player_name):
     """Return color of a player given his name
     """
     return {
-        1 : (0, 255, 0),
-        2 : (0, 0, 255),
-        3 : (255, 0, 0),
-        4 : (255, 255, 0),
-        5 : (0, 255, 255),
-        6 : (255, 0, 255),
-        7 : (224, 224, 224),
-        8 : (153, 153, 255)
+        1: (0, 255, 0),
+        2: (0, 0, 255),
+        3: (255, 0, 0),
+        4: (255, 255, 0),
+        5: (0, 255, 255),
+        6: (255, 0, 255),
+        7: (224, 224, 224),
+        8: (153, 153, 255)
     }[player_name]
 
 
@@ -69,7 +72,6 @@ class MainWindow(QWidget):
         x = size.width()
         y = size.height()
 
-        bbox = hexutil.Rectangle(-x // 2, -y // 2, x, y)
         hexgrid = hexutil.HexGrid(10)
 
         self.qp.setPen(Qt.NoPen)
@@ -131,15 +133,22 @@ class MainWindow(QWidget):
                 if area.get_name() == self.activated_area_name:
                     self.deactivate_area()
                     self.update()
-                elif area.get_name() in self.activated_area.get_adjacent_areas():
+                elif area.get_name() in self.activated_area.get_adjacent_areas_names():
                     if area.get_owner_name() != self.game.current_player.get_name():
                         self.game.send_message('battle', self.activated_area_name, area.get_name())
                     else:
-                        self.game.send_message('transfer', self.activated_area_name, area.get_name())
+                        global nb_transfers_this_turn  # dirty hack, see the top of this module
+                        if nb_transfers_this_turn < MAX_TRANSFERS_PER_TURN:
+                            nb_transfers_this_turn += 1
+                            self.game.send_message('transfer', self.activated_area_name, area.get_name())
+                        else:
+                            print(f'Already did {nb_transfers_this_turn}/{MAX_TRANSFERS_PER_TURN} tranfers allowed per turn')
+
                     self.deactivate_area()
+                    self.update()
             elif (area.get_owner_name() == self.game.player_name and
-                  self.game.player_name == self.game.current_player.get_name()
-                  and area.can_attack()):
+                  self.game.player_name == self.game.current_player.get_name() and
+                  area.can_attack()):
                 # area activation
                 self.activated_area_name = area.get_name()
                 self.activated_area = area
@@ -245,8 +254,8 @@ class Score(QWidget):
 
         size = rect.width() // 4
         for i, p in self.game.players.items():
-            player_score_rect = QRectF(rect.x() + (i-1)%4*size + 5, 30 + rect.y() + ((i-1)//4) * size,
-                                      size - 10, size - 10)
+            player_score_rect = QRectF(rect.x() + (i-1) % 4*size + 5, 30 + rect.y() + ((i-1)//4) * size,
+                                       size - 10, size - 10)
             reserve_rect = QRectF(player_score_rect.x() + 40, player_score_rect.y() + 40, 20, 20)
 
             self.qp.save()
@@ -266,6 +275,7 @@ class Score(QWidget):
             self.qp.setFont(QFont('Helvetica', 8))
             self.qp.drawText(reserve_rect, Qt.AlignCenter, str(p.get_reserve()))
 
+
 class StatusArea(QWidget):
     """Status area showing current player
     """
@@ -283,8 +293,7 @@ class StatusArea(QWidget):
         self.qp.begin(self)
         self.qp.setPen(self.color)
         self.qp.setFont(self.font)
-        self.qp.drawText(event.rect(), Qt.AlignCenter, 'Player {0}\'s turn.'\
-                         .format(self.game.current_player.get_name()))
+        self.qp.drawText(event.rect(), Qt.AlignCenter, 'Player {0}\'s turn.'.format(self.game.current_player.get_name()))
         self.qp.end()
 
 
@@ -341,6 +350,8 @@ class ClientUI(QWidget):
         self.setLayout(grid)
 
     def handle_end_turn_button(self):
+        global nb_transfers_this_turn  # dirty hack, see the top section of the module
+        nb_transfers_this_turn = 0
         self.game.send_message('end_turn')
 
     def check_socket(self):
@@ -374,10 +385,10 @@ class ClientUI(QWidget):
             def_name = self.game.board.get_area(def_data['name']).get_owner_name()
 
             self.game.battle = {
-                'atk_name' : atk_name,
-                'def_name' : def_name,
-                'atk_dice' : atk_data['pwr'],
-                'def_dice' : def_data['pwr']
+                'atk_name': atk_name,
+                'def_name': def_name,
+                'atk_dice': atk_data['pwr'],
+                'def_dice': def_data['pwr']
             }
 
         elif msg['type'] == 'transfer':
@@ -386,7 +397,6 @@ class ClientUI(QWidget):
         elif msg['type'] == 'end_turn':
             self.game.process_end_turn_msg(msg)
             self.game.battle = False
-
 
         elif msg['type'] == 'game_end':
             if msg['winner'] == self.game.player_name:

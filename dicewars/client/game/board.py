@@ -77,7 +77,7 @@ class Board:
 
             current_region.append(current_area)
 
-            for neighbour_name in self.get_area(current_area).get_adjacent_areas():
+            for neighbour_name in self.get_area(current_area).get_adjacent_areas_names():
                 if neighbour_name in current_region:
                     continue
                 if neighbour_name in current_region:
@@ -90,7 +90,7 @@ class Board:
 
     def is_at_border(self, area: Area) -> bool:
         owner = area.get_owner_name()
-        neighbourhood_names = area.get_adjacent_areas()
+        neighbourhood_names = area.get_adjacent_areas_names()
 
         for neighbour_name in neighbourhood_names:
             neighbour = self.get_area(neighbour_name)

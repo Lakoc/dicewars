@@ -1,7 +1,7 @@
 import logging
 import random
 
-from ..utils import possible_attacks, save_state
+from dicewars.ai.utils import possible_attacks, save_state
 from .utils import best_sdc_attack, is_acceptable_sdc_attack
 
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand

@@ -7,7 +7,7 @@ from dicewars.client.game.debugger_game import StaticGame
 from dicewars.client import debugger_ui
 
 
-from dicewars.ai.xlogin42.utils import attacker_advantage
+from dicewars.ai.kb.xlogin42.utils import attacker_advantage
 
 
 class DetailedAreaReporter:
@@ -15,7 +15,7 @@ class DetailedAreaReporter:
         self.board = board
 
     def __call__(self, area):
-        neighbours = [self.board.get_area(a) for a in area.get_adjacent_areas()]
+        neighbours = [self.board.get_area(a) for a in area.get_adjacent_areas_names()]
         enemy_neighbours = [a for a in neighbours if a.get_owner_name() != area.get_owner_name()]
         return '{}: {} -- {}\n'.format(
             area.get_name(),

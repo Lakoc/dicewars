@@ -60,7 +60,7 @@ class AI:
                     if area.get_dice() < 2:
                         continue
 
-                    for neigh in area.get_adjacent_areas():
+                    for neigh in area.get_adjacent_areas_names():
                         if neigh in border_names and board.get_area(neigh).get_dice() < 8:
                             return TransferCommand(area.get_name(), neigh)
             else:
