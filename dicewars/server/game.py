@@ -115,7 +115,7 @@ class Game:
                 if self.check_win_condition():
                     sys.stdout.write(str(self.summary))
                     reward = float(self.summary.winner.startswith(self.config['train']['train_agent_name']))
-                    propagate_reward_through_buffer(self._replay_buffer, reward)
+                    propagate_reward_through_buffer(self._replay_buffer, reward, self.config['train']['discount_rate'])
                     break
 
         except KeyboardInterrupt:
