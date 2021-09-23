@@ -9,7 +9,7 @@ from json.decoder import JSONDecodeError
 import numpy as np
 
 from agent.features import FeatureExtractor
-from agent.trainers.replay_memory import define_replay_buffer
+from agent.trainers.replay_memory import define_replay_buffer, propagate_reward_through_buffer
 from .board import Board
 from .player import Player
 from .summary import GameSummary
@@ -85,6 +85,7 @@ class Game:
 
         with open('./agent/configs/qactorcritic.json', 'r') as config_file:
             config = json.load(config_file)
+        self.config = config
         width = config['architecture']['matrix_width']
         self.our_agent_name = 1
         self._feature_extractor = FeatureExtractor()
@@ -113,6 +114,8 @@ class Game:
                 self.handle_player_turn()
                 if self.check_win_condition():
                     sys.stdout.write(str(self.summary))
+                    reward = float(self.summary.winner.startswith(self.config['train']['train_agent_name']))
+                    propagate_reward_through_buffer(self._replay_buffer, reward)
                     break
 
         except KeyboardInterrupt:
