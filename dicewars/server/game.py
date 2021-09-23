@@ -89,9 +89,7 @@ class Game:
         self._feature_extractor.initialize(player_name=self.our_agent_name, board=board,
                                            target_shape=[width, width])
 
-        self._replay_buffer = define_replay_buffer(self.get_input_shape(config),
-                                                   config['train']['batch_size'],
-                                                   './agent/buffers')
+        self._replay_buffer = define_replay_buffer(self.get_input_shape(config), './agent/buffers')
         self._replay_buffer.enable_file_saving()
 
     def get_input_shape(self, config):
