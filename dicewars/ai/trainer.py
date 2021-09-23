@@ -35,41 +35,43 @@ class AI:
         self.model.load_weights('./agent/saved_models/actor.weights')
 
         # Setup a feature extractor
-        self.feature_extractor = FeatureExtractor()
-        self.feature_extractor.initialize(player_name, board, target_shape=[width, width])
+        self.feature_extractor = FeatureExtractor(player_name, board, target_shape=[width, width])
 
         self.iteration = read_iteration_from_file(self.config)
 
-    def ai_turn(self, board, nb_moves_this_turn, nb_turns_this_game, time_left):
+    def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         """AI agent's turn
 
         Get a random area. If it has a possible move, the agent will do it.
         If there are no more moves, the agent ends its turn.
         """
-        features = self.feature_extractor.extract_features(board)
-        q_values = self.model(features)
-        action = epsilon_greedy(q_values, self.iteration,
-                       eps_min=self.config['eps_min'],
-                       eps_max=self.config['eps_max'],
-                       eps_decay_steps=self.config['eps_decay_steps'])
-        # Correct indices (areas' name starts at 1)
-        action += [1, 1, 0]
+        try:
+            features = self.feature_extractor.extract_features(board)
+            # q_values = self.model(features)
+            greedy_policy = self.config['greedy_policy']
+            action = epsilon_greedy(features[:,:,0], self.feature_extractor.neighborhood_m, self.feature_extractor.owned_areas,
+                                    self.iteration, eps_min=greedy_policy['eps_min'], eps_max=greedy_policy['eps_max'],
+                                    eps_decay_steps=greedy_policy['eps_decay_steps'])
+            # Correct indices (areas' name starts at 1)
+            action += [1, 1, 0]
 
-        if action is None:
-            # No selected action
-            return EndTurnCommand()
-        elif action[2] == 0:
-            # Attack command
-            from_area = board.areas[action[0]]
-            at_area = board.areas[action[1]]
-            return BattleCommand(from_area.get_name(), at_area.get_name())
-        elif action[2] == 1:
-            # Move dice command
-            src_area = board.areas[action[0]]
-            dst_area = board.areas[action[1]]
-            return TransferCommand(src_area.get_name(), dst_area.get_name())
-        else:
-            raise ValueError(F"Invalid value stored in 'action': {action}")
+            if action is None:
+                # No selected action
+                return EndTurnCommand()
+            elif action[2] == 0:
+                # Attack command
+                from_area = board.areas[action[0]]
+                at_area = board.areas[action[1]]
+                return BattleCommand(from_area.get_name(), at_area.get_name())
+            elif action[2] == 1:
+                # Move dice command
+                src_area = board.areas[action[0]]
+                dst_area = board.areas[action[1]]
+                return TransferCommand(src_area.get_name(), dst_area.get_name())
+            else:
+                raise ValueError(F"Invalid value stored in 'action': {action}")
+        except Exception as e:
+            print('a')
 
     def select_valid_action(self, q_values, features):
         """
