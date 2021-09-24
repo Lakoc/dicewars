@@ -40,52 +40,34 @@ class AI:
 
         self.iteration = read_iteration_from_file(self.config)
 
-    def ai_turn(self, board, nb_moves_this_turn, nb_turns_this_game, time_left):
+    def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         """AI agent's turn
 
         Get a random area. If it has a possible move, the agent will do it.
         If there are no more moves, the agent ends its turn.
         """
         features = self.feature_extractor.extract_features(board)
-        q_values = self.model(features)
-        action = epsilon_greedy(q_values, self.iteration,
-                       eps_min=self.config['eps_min'],
-                       eps_max=self.config['eps_max'],
-                       eps_decay_steps=self.config['eps_decay_steps'])
-        # Correct indices (areas' name starts at 1)
-        action += [1, 1, 0]
+        features_batch = features[np.newaxis, ...]
+        q_values = self.model(features_batch)[0]
+        action = epsilon_greedy(q_values, features, self.iteration,
+                                eps_min=self.config['greedy_policy']['eps_min'],
+                                eps_max=self.config['greedy_policy']['eps_max'],
+                                eps_decay_steps=self.config['greedy_policy']['eps_decay_steps'])
 
         if action is None:
             # No selected action
             return EndTurnCommand()
-        elif action[2] == 0:
-            # Attack command
-            from_area = board.areas[action[0]]
-            at_area = board.areas[action[1]]
-            return BattleCommand(from_area.get_name(), at_area.get_name())
-        elif action[2] == 1:
-            # Move dice command
-            src_area = board.areas[action[0]]
-            dst_area = board.areas[action[1]]
-            return TransferCommand(src_area.get_name(), dst_area.get_name())
         else:
-            raise ValueError(F"Invalid value stored in 'action': {action}")
+            # Correct indices (areas' name starts at 1)
+            action += [1, 1, 0]
+            src_area = board.get_area(action[0])
+            dst_area = board.get_area(action[1])
 
-    def select_valid_action(self, q_values, features):
-        """
-        Makes sure that the action is our to be made
-        and that the areas are adjacent.
-        """
-        # Filter our moves
-        our_moves_mask = features[:, :, 0:1]
-        # Filter possible attacks
-        attack_probs = features[:, :, 1:2]
-        non_zero_attack_probs_mask = np.where(attack_probs > 0, 1, 0)
-        masked_q_values = q_values * non_zero_attack_probs_mask * our_moves_mask
-
-        argmax_q_value = np.argmax(masked_q_values[:, :, 0:1])
-        if argmax_q_value[2] == 0:  # Attack
-            return argmax_q_value
-        else:  # Dice move
-            # TODO
-            raise NotImplementedError()
+            if action[2] == 0:
+                # Attack command
+                return BattleCommand(src_area.get_name(), dst_area.get_name())
+            elif action[2] == 1:
+                # Transfer dice command
+                return TransferCommand(src_area.get_name(), dst_area.get_name())
+            else:
+                raise ValueError(F"Invalid value stored in 'action': {action}")
