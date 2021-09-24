@@ -35,8 +35,7 @@ class AI:
         self.model.load_weights('./agent/saved_models/actor.weights')
 
         # Setup a feature extractor
-        self.feature_extractor = FeatureExtractor()
-        self.feature_extractor.initialize(player_name, board, target_shape=[width, width])
+        self.feature_extractor = FeatureExtractor(player_name, board, target_shape=[width, width])
 
         self.iteration = read_iteration_from_file(self.config)
 
@@ -49,6 +48,7 @@ class AI:
         features = self.feature_extractor.extract_features(board)
         features_batch = features[np.newaxis, ...]
         q_values = self.model(features_batch)[0]
+        # self.feature_extractor.neighborhood_m, self.feature_extractor.owned_areas
         action = epsilon_greedy(q_values, features, self.iteration,
                                 eps_min=self.config['greedy_policy']['eps_min'],
                                 eps_max=self.config['greedy_policy']['eps_max'],

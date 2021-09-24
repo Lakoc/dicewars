@@ -88,9 +88,8 @@ class Game:
         self.config = config
         width = config['architecture']['matrix_width']
         self.our_agent_name = 1
-        self._feature_extractor = FeatureExtractor()
-        self._feature_extractor.initialize(player_name=self.our_agent_name, board=board,
-                                           target_shape=[width, width])
+        self._feature_extractor = FeatureExtractor(player_name=self.our_agent_name, board=board,
+                                                   target_shape=[width, width])
 
         self._replay_buffer = define_replay_buffer(self.get_input_shape(config), './agent/buffers')
         self._replay_buffer.enable_file_saving()
@@ -203,7 +202,6 @@ class Game:
             self._replay_buffer.add_single(record)
         else:
             pass
-
 
     def get_state(self):
         """Get game state
@@ -437,7 +435,8 @@ class Game:
             True if a player has won, False otherwise
         """
         if self.nb_consecutive_end_of_turns // self.nb_players_alive == self.max_pass_rounds:
-            self.logger.info("Game cancelled because the limit of {} rounds of passing has been reached".format(self.max_pass_rounds))
+            self.logger.info("Game cancelled because the limit of {} rounds of passing has been reached".format(
+                self.max_pass_rounds))
             for p in self.players.values():
                 if p.get_number_of_areas() > 0:
                     self.eliminate_player(p.get_name())
@@ -446,7 +445,8 @@ class Game:
             return True
 
         if self.nb_battles == self.max_battles_per_game:
-            self.logger.info("Game cancelled because the limit of {} battles has been reached".format(self.max_battles_per_game))
+            self.logger.info(
+                "Game cancelled because the limit of {} battles has been reached".format(self.max_battles_per_game))
             for p in self.players.values():
                 if p.get_number_of_areas() > 0:
                     self.eliminate_player(p.get_name())

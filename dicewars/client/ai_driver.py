@@ -74,7 +74,7 @@ class AIDriver:
         except TimeoutError:
             self.logger.error("The AI failed to construct itself in {}s. Disabling it.".format(time_limit_constructor))
             self.ai_disabled = True
-        except Exception:
+        except Exception as e:
             self.logger.error("The AI crashed during construction:\n", exc_info=True)
             self.ai_disabled = True
 
@@ -109,20 +109,20 @@ class AIDriver:
 
                 try:
                     board_copy = copy.deepcopy(self.board)
-                    with self.timer as time_left:
-                        command = self.ai.ai_turn(
-                            board_copy,
-                            self.moves_this_turn,
-                            self.transfers_this_turn,
-                            self.turns_finished,
-                            time_left
-                        )
+                    # with self.timer as time_left:
+                    command = self.ai.ai_turn(
+                        board_copy,
+                        self.moves_this_turn,
+                        self.transfers_this_turn,
+                        self.turns_finished,
+                        0
+                    )
                     self.process_command(command)
                 except TimeoutError:
                     self.logger.warning("Forced 'end_turn' because of timeout")
                     self.send_message('end_turn')
                     self.time_left_last_time = -1.0
-                except Exception:
+                except Exception as e:
                     self.logger.error("The AI crashed during attempt to make a move:\n", exc_info=True)
                     self.send_message('end_turn')
                     self.ai_disabled = True
