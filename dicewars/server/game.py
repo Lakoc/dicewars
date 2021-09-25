@@ -100,6 +100,23 @@ class Game:
         input_shape = [size, size, in_channels]
         return input_shape
 
+    def get_trainer_agent_reward(self, summary: GameSummary):
+        reward_for_defeated_player = 1.0 / (self.number_of_players - 1)
+        defeated_players = self.count_defeated_players(summary)
+        return defeated_players * reward_for_defeated_player
+
+    def count_defeated_players(self, summary: GameSummary):
+        our_agent_name = self.config['train']['train_agent_name']
+        our_agent_won = self.summary.winner.startswith(our_agent_name)
+        if our_agent_won:
+            return self.number_of_players - 1
+        else:
+            for i, elimination in enumerate(summary.eliminations):
+                agent_name = elimination[0]
+                if agent_name.startswith(our_agent_name):
+                    return i
+        raise RuntimeError("The train agent wasn't found. There's bug in the code above.")
+
     def run(self):
         """Main loop of the game
         """
@@ -112,9 +129,14 @@ class Game:
                 self.handle_player_turn()
                 if self.check_win_condition():
                     sys.stdout.write(str(self.summary))
-                    reward = float(self.summary.winner.startswith(self.config['train']['train_agent_name']))
-                    propagate_reward_through_buffer(self._replay_buffer, reward, self.config['train']['discount_rate'])
-                    break
+
+                    # In case of a game of 3 players
+                    # Reward is 1.0 for the 1st place
+                    # Reward is 0.5 for the 2nd place
+                    # Reward is 0.0 for the 3rd place
+                    reward = self.get_trainer_agent_reward(self.summary)
+                    propagate_reward_through_buffer(self._replay_buffer, reward,
+                                                    self.config['train']['discount_rate'])
 
         except KeyboardInterrupt:
             self.logger.info("Game interrupted.")
