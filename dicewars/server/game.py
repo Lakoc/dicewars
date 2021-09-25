@@ -3,13 +3,12 @@ import logging
 import random
 import socket
 import sys
-import os
 from json.decoder import JSONDecodeError
 
 import numpy as np
 
-from agent.features import FeatureExtractor
-from agent.trainers.replay_memory import define_replay_buffer, propagate_reward_through_buffer
+from agent.src.features import FeatureExtractor
+from agent.src.trainers.replay_memory import define_replay_buffer, propagate_reward_through_buffer
 from .board import Board
 from .player import Player
 from .summary import GameSummary
