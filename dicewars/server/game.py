@@ -137,6 +137,7 @@ class Game:
                     reward = self.get_trainer_agent_reward(self.summary)
                     propagate_reward_through_buffer(self._replay_buffer, reward,
                                                     self.config['train']['discount_rate'])
+                    self._replay_buffer.flush()
                     break
 
         except KeyboardInterrupt:
