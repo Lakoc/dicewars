@@ -267,8 +267,7 @@ class Game:
                                                    transfers_left=1,
                                                    dice_counts=self._feature_extractor.dice_counts[:, 0, 0],
                                                    neighborhood=self._feature_extractor.neighborhood_m,
-                                                   invalid_transfers_mask=np.ones_like(next_state[:, :, 0]),
-                                                   qval_threshold=self.config['train']['qval_threshold'])
+                                                   invalid_transfers_mask=np.ones_like(next_state[:, :, 0]))
         return state, action, next_state, actions_mask
 
     def get_state(self):
