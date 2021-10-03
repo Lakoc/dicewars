@@ -7,8 +7,9 @@ from json.decoder import JSONDecodeError
 
 import numpy as np
 
+from agent.src.actions import get_filter_actions_mask
 from agent.src.features import FeatureExtractor
-from agent.src.trainers.replay_memory import define_replay_buffer, propagate_reward_through_buffer
+from agent.src.trainers.replay_memory import define_replay_buffer
 from .board import Board
 from .player import Player
 from .summary import GameSummary
@@ -82,25 +83,41 @@ class Game:
 
         self.summary = GameSummary()
 
-        with open('./agent/configs/qactorcritic.json', 'r') as config_file:
+        with open('./agent/configs/qactorcritic_transformer.json', 'r') as config_file:
             config = json.load(config_file)
         self.config = config
-        width = config['architecture']['matrix_width']
-        self.our_agent_name = 1
+        width = config['architecture']['num_areas']
+        self.our_agent_name = self._get_our_agents_name()
         self._feature_extractor = FeatureExtractor(player_name=self.our_agent_name, board=board,
                                                    target_shape=[width, width])
 
-        self._replay_buffer = define_replay_buffer(self.get_input_shape(config), './agent/buffers')
+        self._replay_buffer = define_replay_buffer(self.get_input_shape(config),
+                                                   self.get_output_shape(config),
+                                                   config['train']['buffers_path'])
         self._replay_buffer.enable_file_saving()
 
+    def _get_our_agents_name(self):
+        return [player_name for player_name in self.players.keys() if
+                self.players[player_name].get_nickname().startswith('trainer')][0]
+
+    # TODO: Move to a config related source file
     def get_input_shape(self, config):
         arch_config = config['architecture']
-        size = arch_config['matrix_width']
+        size = arch_config['num_areas']
         in_channels = arch_config['input_channels']
         input_shape = [size, size, in_channels]
         return input_shape
 
+    # TODO: Move to a config related source file
+    def get_output_shape(self, config):
+        arch_config = config['architecture']
+        size = arch_config['num_areas']
+        out_channels = arch_config['output_channels']
+        output_shape = [size, size, out_channels]
+        return output_shape
+
     def get_trainer_agent_reward(self, summary: GameSummary):
+        # Reward in [0, 1] range
         reward_for_defeated_player = 1.0 / (self.number_of_players - 1)
         defeated_players = self.count_defeated_players(summary)
         return defeated_players * reward_for_defeated_player
@@ -126,17 +143,36 @@ class Game:
                 self.send_message(player, 'game_state')
             while True:
                 self.logger.debug("Current player {}".format(self.current_player.get_name()))
-                self.handle_player_turn()
-                if self.check_win_condition():
-                    sys.stdout.write(str(self.summary))
+                # Check that the current player is our training agent
+                save_record_to_buffer = self._current_player_is_our_agent()
 
-                    # In case of a game of 3 players
-                    # Reward is 1.0 for the 1st place
-                    # Reward is 0.5 for the 2nd place
-                    # Reward is 0.0 for the 3rd place
-                    reward = self.get_trainer_agent_reward(self.summary)
-                    propagate_reward_through_buffer(self._replay_buffer, reward,
-                                                    self.config['train']['discount_rate'])
+                # The following line changes the current player on EndTurn command
+                state, action, next_state, actions_mask = self.handle_player_turn()
+
+                # The following call decreases the number of players
+                # if need be.
+                is_game_over = self.check_win_condition()
+
+                if save_record_to_buffer and action is not None:
+                    game_continues = self.nb_players_alive > 1
+                    # Check if all players are eliminiated.
+                    # Don't care if it's a game over because that can happen
+                    # even after too much steps of the game.
+                    if game_continues:
+                        reward = 0
+                    else:
+                        # In case of a game of 3 players
+                        # Reward is 1.0 for the 1st place
+                        # Reward is 0.5 for the 2nd place
+                        # Reward is 0.0 for the 3rd place
+                        reward = self.get_trainer_agent_reward(self.summary)
+
+                    game_continues = np.array(game_continues, dtype=np.bool)
+                    record = (state, action, np.float32(reward), game_continues, next_state, actions_mask)
+                    self._replay_buffer.add_single(record)
+
+                if is_game_over:
+                    sys.stdout.write(str(self.summary))
                     self._replay_buffer.flush()
                     break
 
@@ -157,6 +193,9 @@ class Game:
         except BrokenPipeError:
             pass
 
+    def _current_player_is_our_agent(self):
+        return self.current_player.get_name() == self.our_agent_name
+
     ##############
     # GAME LOGIC #
     ##############
@@ -176,9 +215,12 @@ class Game:
     def handle_player_turn(self):
         """Handle clients message and carry out the action
         """
-        save_to_buffer = self.current_player.get_name() == self.our_agent_name
+        state = None
         action = None
-        if save_to_buffer:
+        next_state = None
+        actions_mask = None
+
+        if self._current_player_is_our_agent():
             state = self._feature_extractor.extract_features(self.board)
 
         self.logger.debug(
@@ -218,13 +260,16 @@ class Game:
             self.logger.warning(f'Unexpected message type: {msg["type"]}')
 
         self.logger.debug(F"Action: {action}")
-        if save_to_buffer and action is not None:
-            next_state = self._feature_extractor.extract_features(self.board)
 
-            record = (state, action, np.float32(0), next_state)
-            self._replay_buffer.add_single(record)
-        else:
-            pass
+        if self._current_player_is_our_agent() and action is not None:
+            next_state = self._feature_extractor.extract_features(self.board)
+            actions_mask = get_filter_actions_mask(next_state,
+                                                   transfers_left=1,
+                                                   dice_counts=self._feature_extractor.dice_counts[:, 0, 0],
+                                                   neighborhood=self._feature_extractor.neighborhood_m,
+                                                   invalid_transfers_mask=np.ones_like(next_state[:, :, 0]),
+                                                   qval_threshold=self.config['train']['qval_threshold'])
+        return state, action, next_state, actions_mask
 
     def get_state(self):
         """Get game state
