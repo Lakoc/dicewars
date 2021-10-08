@@ -10,6 +10,8 @@ import numpy as np
 from agent.src.actions import get_filter_actions_mask
 from agent.src.features import FeatureExtractor
 from agent.src.trainers.replay_memory import define_replay_buffer
+from agent.src.utils import find_max_len_of_list
+
 from .board import Board
 from .player import Player
 from .summary import GameSummary
@@ -86,10 +88,26 @@ class Game:
         with open('./agent/configs/qactorcritic_transformer.json', 'r') as config_file:
             config = json.load(config_file)
         self.config = config
-        width = config['architecture']['num_areas']
+        self.width = config['architecture']['num_areas']
         self.our_agent_name = self._get_our_agents_name()
+        self.our_agent_rounds_ended = 0
+        self.our_agent_actions = 0
+        self.our_agent_rounds_saved = 0
+        self.our_agent_actions_this_turn = 0
+        self.our_agent_actions_last_turn = 0
+        self.continuous_area_size = None
+        self.round_buffer = []
+        self.reward_config = {
+            'actions': {
+                'not_possible_action': -0.2,
+                'successful_attack': 0.1,
+                'unsuccessful_attack_more': -0.025,
+                'unsuccessful_attack_less_eq': -0.1,
+            },
+            'area_diff_coef': 0.3
+        }
         self._feature_extractor = FeatureExtractor(player_name=self.our_agent_name, board=board,
-                                                   target_shape=[width, width])
+                                                   target_shape=[self.width, self.width])
 
         self._replay_buffer = define_replay_buffer(self.get_input_shape(config),
                                                    self.get_output_shape(config),
@@ -134,6 +152,12 @@ class Game:
                     return i
         raise RuntimeError("The train agent wasn't found. There's bug in the code above.")
 
+    def _calculate_current_action_reward(self, successful_attack, dice_diff):
+        if successful_attack:
+            return self.reward_config['actions']['successful_attack']
+        return self.reward_config['actions']['unsuccessful_attack_more'] if dice_diff > 0 else \
+            self.reward_config['actions']['unsuccessful_attack_less_eq']
+
     def run(self):
         """Main loop of the game
         """
@@ -146,33 +170,86 @@ class Game:
                 # Check that the current player is our training agent
                 save_record_to_buffer = self._current_player_is_our_agent()
 
+                area_diff = None
+                if save_record_to_buffer and self.our_agent_actions_this_turn == 0:
+                    continuous_areas = FeatureExtractor(player_name=self.our_agent_name, board=self.board,
+                                                        target_shape=[self.width, self.width]).find_areas()
+                    current_continuous_max_size = find_max_len_of_list(continuous_areas)
+
+                    if self.continuous_area_size is None:
+                        self.continuous_area_size = current_continuous_max_size
+                    else:
+                        area_diff = current_continuous_max_size - self.continuous_area_size
+                        self.continuous_area_size = current_continuous_max_size
+
                 # The following line changes the current player on EndTurn command
-                state, action, next_state, actions_mask = self.handle_player_turn()
+                state, action, next_state, actions_mask, next_actions_mask, dice_diff, successful_attack = self.handle_player_turn()
 
                 # The following call decreases the number of players
                 # if need be.
                 is_game_over = self.check_win_condition()
 
+                """Rewarding system
+                1. Before action 
+                Every not possible action should be punished by = -0.2
+
+                1. After action
+                Successful attack = 0.1
+                Unsuccessful if we had more dices >= = -0.025, otherwise -0.1
+                
+                2. After round
+                Reward is equal to 0.3 * continuous_area_diff.
+                Reward is equally shared between all actions this turn.
+                
+                3. After game
+                Ultimate goal = WIN game = 1 / divided by actions needed to win * (normalization factor) should be 
+                somewhere between <0.5,1>, only last round actions get this bonus.
+                """
                 if save_record_to_buffer and action is not None:
                     game_continues = self.nb_players_alive > 1
-                    # Check if all players are eliminiated.
-                    # Don't care if it's a game over because that can happen
-                    # even after too much steps of the game.
-                    if game_continues:
-                        reward = 0
-                    else:
-                        # In case of a game of 3 players
-                        # Reward is 1.0 for the 1st place
-                        # Reward is 0.5 for the 2nd place
-                        # Reward is 0.0 for the 3rd place
-                        reward = self.get_trainer_agent_reward(self.summary)
-
                     game_continues = np.array(game_continues, dtype=np.bool)
-                    record = (state, action, np.float32(reward), game_continues, next_state, actions_mask)
-                    self._replay_buffer.add_single(record)
+
+                    # Punish not possible moves
+                    non_valid_action = np.zeros(3, dtype=np.int32)
+                    for source_ind, row in enumerate(actions_mask):
+                        for dest_ind, column in enumerate(row):
+                            for attack_type, value in enumerate(column):
+                                if value == 0:
+                                    non_valid_action[:] = [source_ind, dest_ind, attack_type]
+                                    self.round_buffer.append([
+                                        state, non_valid_action,
+                                        np.float32(self.reward_config['actions']['not_possible_action']),
+                                        game_continues, next_state,
+                                        next_actions_mask, False])
+
+                    reward = self._calculate_current_action_reward(successful_attack, dice_diff)
+                    record = [state, action, np.float32(reward), game_continues, next_state, next_actions_mask, True]
+                    if self.our_agent_rounds_ended > self.our_agent_rounds_saved:
+                        self.our_agent_rounds_saved = self.our_agent_rounds_ended
+                        area_reward_per_action = area_diff * self.reward_config[
+                            'area_diff_coef'] / self.our_agent_actions_last_turn
+                        for record in self.round_buffer:
+                            if record[-1]:
+                                record[2] = np.float32(record[2] + area_reward_per_action)
+                            self._replay_buffer.add_single(tuple(record[:-1]))
+                        self.round_buffer = []
+                    else:
+                        self.round_buffer.append(record)
 
                 if is_game_over:
                     sys.stdout.write(str(self.summary))
+                    if self.our_agent_rounds_ended > self.our_agent_rounds_saved:
+                        # We have lost and save last round to buffer
+                        for record in self.round_buffer:
+                            self._replay_buffer.add_single(tuple(record[:-1]))
+                    else:
+                        # We have won add sweet reward
+                        for record in self.round_buffer:
+                            # TODO: Find Normalization, hyperParam for optimal actions count
+                            sweet_reward = 0.5
+                            if record[-1]:
+                                record[2] = np.float32(record[2] + sweet_reward)
+                            self._replay_buffer.add_single(tuple(record[:-1]))
                     self._replay_buffer.flush()
                     break
 
@@ -219,9 +296,19 @@ class Game:
         action = None
         next_state = None
         actions_mask = None
+        next_actions_mask = None
+        successful_attack = False
+        dice_diff = 0
 
         if self._current_player_is_our_agent():
+            self.our_agent_actions += 1
+            self.our_agent_actions_this_turn += 1
             state = self._feature_extractor.extract_features(self.board)
+            actions_mask = get_filter_actions_mask(state,
+                                                   transfers_left=1,
+                                                   dice_counts=self._feature_extractor.dice_counts[:, 0, 0],
+                                                   neighborhood=self._feature_extractor.neighborhood_m,
+                                                   invalid_transfers_mask=np.ones_like(state[:, :, 0]))
 
         self.logger.debug(
             "Handling player {} ({}) turn".format(self.current_player.get_name(), self.current_player.nickname))
@@ -230,7 +317,10 @@ class Game:
 
         if msg['type'] == 'battle':
             self.nb_consecutive_end_of_turns = 0
+            dice_diff = self.board.get_area_by_name(msg['atk']).get_dice() - self.board.get_area_by_name(
+                msg['def']).get_dice()
             battle = self.battle(self.board.get_area_by_name(msg['atk']), self.board.get_area_by_name(msg['def']))
+            successful_attack = battle['atk']['owner'] == battle['def']['owner']
             self.summary.add_battle()
             self.logger.debug("Battle result: {}".format(battle))
             for p in self.players:
@@ -241,6 +331,10 @@ class Game:
             action = np.array([atk_area_idx, def_area_idx, 0], np.int32)
 
         elif msg['type'] == 'end_turn':
+            if self._current_player_is_our_agent():
+                self.our_agent_rounds_ended += 1
+                self.our_agent_actions_last_turn = self.our_agent_actions_this_turn
+                self.our_agent_actions_this_turn = 0
             self.nb_consecutive_end_of_turns += 1
             affected_areas = self.end_turn()
             for p in self.players:
@@ -263,12 +357,12 @@ class Game:
 
         if self._current_player_is_our_agent() and action is not None:
             next_state = self._feature_extractor.extract_features(self.board)
-            actions_mask = get_filter_actions_mask(next_state,
-                                                   transfers_left=1,
-                                                   dice_counts=self._feature_extractor.dice_counts[:, 0, 0],
-                                                   neighborhood=self._feature_extractor.neighborhood_m,
-                                                   invalid_transfers_mask=np.ones_like(next_state[:, :, 0]))
-        return state, action, next_state, actions_mask
+            next_actions_mask = get_filter_actions_mask(next_state,
+                                                        transfers_left=1,
+                                                        dice_counts=self._feature_extractor.dice_counts[:, 0, 0],
+                                                        neighborhood=self._feature_extractor.neighborhood_m,
+                                                        invalid_transfers_mask=np.ones_like(next_state[:, :, 0]))
+        return state, action, next_state, actions_mask, next_actions_mask, dice_diff, successful_attack
 
     def get_state(self):
         """Get game state
