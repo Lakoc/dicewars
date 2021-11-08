@@ -9,7 +9,7 @@ import numpy as np
 
 from agent.src.actions import get_filter_actions_mask
 from agent.src.features import FeatureExtractor
-from agent.src.trainers.replay_memory import define_replay_buffer
+from agent.src.trainers.replay_memory import define_replay_buffer, propagate_reward_through_buffer
 from .board import Board
 from .player import Player
 from .summary import GameSummary
@@ -116,11 +116,12 @@ class Game:
         output_shape = [size, size, out_channels]
         return output_shape
 
-    def get_trainer_agent_reward(self, summary: GameSummary):
-        # Reward in [0, 1] range
-        reward_for_defeated_player = 1.0 / (self.number_of_players - 1)
+    def get_trainer_agent_reward(self, summary: GameSummary, reward_range=(-1., 1.)):
+        range_len = reward_range[1] - reward_range[0]  # 1 - (-1) = 2
+        reward_for_defeated_player = range_len / (self.number_of_players - 1)
         defeated_players = self.count_defeated_players(summary)
-        return defeated_players * reward_for_defeated_player
+        total_reward = defeated_players * reward_for_defeated_player  # range [0, range_len]
+        return total_reward + reward_range[0]  # [-1, 1]
 
     def count_defeated_players(self, summary: GameSummary):
         our_agent_name = self.config['train']['train_agent_name']
@@ -154,25 +155,24 @@ class Game:
                 is_game_over = self.check_win_condition()
 
                 if save_record_to_buffer and action is not None:
-                    game_continues = self.nb_players_alive > 1
                     # Check if all players are eliminiated.
                     # Don't care if it's a game over because that can happen
                     # even after too much steps of the game.
-                    if game_continues:
-                        reward = 0
-                    else:
-                        # In case of a game of 3 players
-                        # Reward is 1.0 for the 1st place
-                        # Reward is 0.5 for the 2nd place
-                        # Reward is 0.0 for the 3rd place
-                        reward = self.get_trainer_agent_reward(self.summary)
-
+                    game_continues = self.nb_players_alive > 1
+                    # if game_continues:
+                    #     reward = 0
+                    # else:
+                    #     reward = self.get_trainer_agent_reward(self.summary)
                     game_continues = np.array(game_continues, dtype=np.bool)
-                    record = (state, action, np.float32(reward), game_continues, next_state, actions_mask)
+                    record = (state, action, np.float32(0), game_continues, next_state, actions_mask)
                     self._replay_buffer.add_single(record)
 
                 if is_game_over:
                     sys.stdout.write(str(self.summary))
+                    if self.nb_players_alive == 1:
+                        reward = self.get_trainer_agent_reward(self.summary)
+                        propagate_reward_through_buffer(self._replay_buffer, reward,
+                                                        self.config['train']['discount_rate'])
                     self._replay_buffer.flush()
                     break
 
