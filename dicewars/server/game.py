@@ -210,17 +210,17 @@ class Game:
                     game_continues = np.array(game_continues, dtype=np.bool)
 
                     # Punish not possible moves
-                    non_valid_action = np.zeros(3, dtype=np.int32)
-                    for source_ind, row in enumerate(actions_mask):
-                        for dest_ind, column in enumerate(row):
-                            for attack_type, value in enumerate(column):
-                                if value == 0:
-                                    non_valid_action[:] = [source_ind, dest_ind, attack_type]
-                                    self.round_buffer.append([
-                                        state, non_valid_action,
-                                        np.float32(self.reward_config['actions']['not_possible_action']),
-                                        game_continues, next_state,
-                                        next_actions_mask, False])
+                    # non_valid_action = np.zeros(3, dtype=np.int32)
+                    # for source_ind, row in enumerate(actions_mask):
+                    #     for dest_ind, column in enumerate(row):
+                    #         for attack_type, value in enumerate(column):
+                    #             if value == 0:
+                    #                 non_valid_action[:] = [source_ind, dest_ind, attack_type]
+                    #                 self.round_buffer.append([
+                    #                     state, non_valid_action,
+                    #                     np.float32(self.reward_config['actions']['not_possible_action']),
+                    #                     game_continues, next_state,
+                    #                     next_actions_mask, False])
 
                     reward = self._calculate_current_action_reward(successful_attack, dice_diff)
                     record = [state, action, np.float32(reward), game_continues, next_state, next_actions_mask, True]
