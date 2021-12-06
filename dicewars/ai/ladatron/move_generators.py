@@ -2,12 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from dicewars.ai.ladatron.map import Map
-
-
-class Move:
-
-    def do(self, map: Map):
-        pass
+from dicewars.ai.ladatron.moves import Move
 
 
 class MoveGenerator(ABC):

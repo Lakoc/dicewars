@@ -4,7 +4,8 @@ from dicewars.ai.ladatron.brs import BestReplySearch
 from dicewars.ai.ladatron.heuristics import HardcodedHeuristic
 from dicewars.ai.ladatron.map import Map
 from dicewars.ai.ladatron.move_generators import DumbMoveGenerator, Move
-from dicewars.client.ai_driver import EndTurnCommand
+from dicewars.ai.ladatron.moves import BattleMove, EndMove, TransferMove
+from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from dicewars.client.game.board import Board
 
 
@@ -25,4 +26,12 @@ class AI:
         map: Map = Map.from_board(board)
         move: Move = self.search.search(player, opponents, map, depth=3)
 
-        return EndTurnCommand()
+        return self._apply_move(move)
+
+    def _apply_move(self, move: Move) -> object:
+        if isinstance(move, TransferMove):
+            return TransferCommand(move.source, move.target)
+        elif isinstance(move, BattleMove):
+            return BattleCommand(move.source, move.target)
+        elif isinstance(move, EndMove):
+            return EndTurnCommand()
