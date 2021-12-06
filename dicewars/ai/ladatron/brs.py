@@ -1,4 +1,5 @@
 import copy
+from math import inf
 from typing import List
 
 from dicewars.ai.ladatron.heuristics import Evaluation
@@ -13,8 +14,27 @@ class BestReplySearch:
         self.heuristic_evaluation = heuristic_evaluation
         self.move_generator = move_generator
 
-    def search(self, player: int, opponents: List[int], map: Map, depth: int, turn: Turn, alpha: float,
-               beta: float) -> float:
+    def search(self, player: int, opponents: List[int], map: Map, depth: int) -> Move:
+        if depth <= 0:
+            raise ValueError("Unexpected depth")
+
+        moves: List[Move] = self.move_generator.generate(player, map)
+        max_value: float = -inf
+        best_move: Move = moves[0]
+
+        for move in moves:
+            map_copy = copy.deepcopy(map)
+            move.do(map_copy)
+            value = self._search(player, opponents, map, depth=3, turn=Turn.MIN, alpha=-inf, beta=inf)
+
+            if value > max_value:
+                max_value = value
+                best_move = move
+
+        return best_move
+
+    def _search(self, player: int, opponents: List[int], map: Map, depth: int, turn: Turn, alpha: float,
+                beta: float) -> float:
         if depth <= 0:
             return self.heuristic_evaluation.eval(player, map)
 
@@ -32,7 +52,7 @@ class BestReplySearch:
             # This is to avoid move undoing if there is only a single map instance.
             map_copy = copy.deepcopy(map)
             move.do(map_copy)
-            value = -self.search(player, opponents, map_copy, depth - 1, turn, -beta, -alpha)
+            value = -self._search(player, opponents, map_copy, depth - 1, turn, -beta, -alpha)
 
             if value >= beta:
                 return value
