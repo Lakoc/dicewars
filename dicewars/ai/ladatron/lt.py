@@ -24,8 +24,8 @@ class AI:
     def ai_turn(self, board: Board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         # TODO: Initialize opponents and player's indices
 
-        map: Map = Map.from_board(board)
-        move: Move = self.search.search(self.player_name,  self.opponents, map, depth=3)
+        board_map: Map = Map.from_board(board)
+        move: Move = self.search.search(self.player_name,  self.opponents, board_map, depth=3)
 
         return self._apply_move(move)
 
