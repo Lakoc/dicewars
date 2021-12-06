@@ -3,7 +3,7 @@ import logging
 from dicewars.ai.ladatron.brs import BestReplySearch
 from dicewars.ai.ladatron.heuristics import HardcodedHeuristic
 from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.move_generators import DumbMoveGenerator, Move
+from dicewars.ai.ladatron.move_generators import DumbMoveGenerator, LessDumbMoveGenerator, Move
 from dicewars.ai.ladatron.moves import BattleMove, EndMove, TransferMove
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from dicewars.client.game.board import Board
@@ -16,15 +16,16 @@ class AI:
         self.logger = logging.getLogger('AI')
         self.max_transfers = max_transfers
 
-        self.search = BestReplySearch(HardcodedHeuristic(), DumbMoveGenerator())
+        self.opponents = list(filter(lambda x: x != self.player_name,players_order))
+
+        self.search = BestReplySearch(HardcodedHeuristic(), LessDumbMoveGenerator())
+
 
     def ai_turn(self, board: Board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         # TODO: Initialize opponents and player's indices
-        opponents = []
-        player = 0
 
         map: Map = Map.from_board(board)
-        move: Move = self.search.search(player, opponents, map, depth=3)
+        move: Move = self.search.search(self.player_name,  self.opponents, map, depth=3)
 
         return self._apply_move(move)
 
