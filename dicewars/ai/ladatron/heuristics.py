@@ -1,0 +1,16 @@
+from abc import ABC, abstractmethod
+
+from dicewars.ai.ladatron.map import Map
+
+
+class Evaluation(ABC):
+
+    @abstractmethod
+    def eval(self, player: int, map: Map) -> float:
+        pass
+
+
+class HardcodedHeuristic(Evaluation):
+
+    def eval(self, player: int, map: Map) -> float:
+        pass
