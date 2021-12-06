@@ -1,16 +1,18 @@
 from dicewars.server.board import Board
 from typing import Type, TypeVar
 import numpy as np
+from copy import deepcopy
 
 T = TypeVar('T', bound='Map')
 
 
 class Map:
-    def __init__(self, board_state):
-        self.map = board_state
+    def __init__(self, board_state, neighborhood_m):
+        self.board_state = board_state
+        self.neighborhood_m = neighborhood_m
 
     def copy(self):
-        return np.copy(self.map)
+        return deepcopy(self)
 
     @classmethod
     def from_board(cls: Type[T], board: Board) -> T:
@@ -19,5 +21,4 @@ class Map:
         for area in board.areas:
             np.put(neighborhood_m[int(area) - 1], np.array(board.areas[area].get_adjacent_areas_names()) - 1, 1)
         dice_counts = np.array([[board.areas[area].owner_name, board.areas[area].dice] for area in board.areas])
-        map_state = np.append(dice_counts, neighborhood_m, axis=1)
-        return Map(map_state)
+        return Map(dice_counts, neighborhood_m)
