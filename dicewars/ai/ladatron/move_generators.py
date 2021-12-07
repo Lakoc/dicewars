@@ -19,10 +19,6 @@ class MoveGenerator(ABC):
         pass
 
     @staticmethod
-    def get_dice_diff(board_map: Map, area1: int, area2: int):
-        return board_map.board_state[area1][1] - board_map.board_state[area2][1]
-
-    @staticmethod
     def can_transfer_dices(board_map: Map, area1: int, area2: int):
         return board_map.board_state[area1][1] > 1 and board_map.board_state[area2][1] < 8
 
@@ -47,7 +43,7 @@ class MoveGenerator(ABC):
                     battles_remaining -= 1
                 sequence.append(next_move)
                 next_move.do(map_copy)
-                next_moves: List[Move] = self.generate_moves(player, board_map,
+                next_moves: List[Move] = self.generate_moves(player, map_copy,
                                                              allow_transfers=(transfers_remaining > 0),
                                                              allow_battles=(battles_remaining > 0))
                 next_move, next_value = self._select_best_move(player, next_moves, map_copy)
@@ -91,7 +87,7 @@ class LessDumbMoveGenerator(MoveGenerator):
 
     def generate_moves(self, player: int, board_map: Map, allow_transfers: bool, allow_battles: bool) -> List[Move]:
         current_player_areas = np.argwhere(board_map.board_state[:, 0] == player).squeeze(axis=1)
-        moves = []
+        moves = [EndMove()]
         for source_area in current_player_areas:
             for neighbour_area in np.argwhere(board_map.neighborhood_m[source_area]).squeeze(axis=1):
                 is_area_of_current_player = neighbour_area in current_player_areas
@@ -100,7 +96,11 @@ class LessDumbMoveGenerator(MoveGenerator):
                 if allow_transfers and is_area_of_current_player and can_transfer_dices:
                     pass
                     # moves.append(TransferMove(source_area, neighbour_area))
-                elif allow_battles and self.get_dice_diff(board_map, source_area, neighbour_area) > 0:
+                elif allow_battles and self._is_reasonable_to_attack(board_map, source_area, neighbour_area):
                     moves.append(BattleMove(source_area, neighbour_area))
-        moves.append(EndMove())
         return moves
+
+    def _is_reasonable_to_attack(self, board_map, source_area, target_area):
+        source_dice = board_map.board_state[source_area][1]
+        target_dice = board_map.board_state[target_area][1]
+        return (source_dice - target_dice) > 2 or source_dice == 8

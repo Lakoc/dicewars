@@ -19,7 +19,7 @@ class AI:
         self.max_transfers = max_transfers
         self.max_battles = 7
 
-        self.depth = 2
+        self.depth = 1
         self.opponents = list(filter(lambda x: x != self.player_name, players_order))
 
         heuristic = HardcodedHeuristic()
@@ -38,7 +38,7 @@ class AI:
             self.moves = self.search.search(self.player_name, self.opponents, board_map, depth=self.depth,
                                             remaining_transfers=remaining_transfers,
                                             remaining_attacks=remaining_attacks)
-            self.logger.info(F"Number of found moves: {len(self.moves)}")
+            self.logger.info(F"Number of moves found: {len(self.moves)}")
             self.logger.info(F"Time it took to compute the moves: {time.time() - start_time}")
 
         move: Move = self.moves.pop(0)
