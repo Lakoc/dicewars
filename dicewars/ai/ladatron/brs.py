@@ -27,6 +27,9 @@ class BestReplySearch:
         max_value: float = -inf
         best_sequence: MoveSequence = sequences[0]
 
+        if len(sequences) == 1:
+            return best_sequence
+
         for sequence in sequences:
             map_new = sequence.do(board_map)
             value = self._search(player, opponents, map_new, depth=depth - 1, turn=Turn.MIN, alpha=-inf, beta=inf)
@@ -37,8 +40,7 @@ class BestReplySearch:
 
         return best_sequence
 
-    def _search(self, player: int, opponents: List[int], board_map: Map, depth: int, turn: Turn, alpha: float,
-                beta: float) -> float:
+    def _search(self, player: int, opponents: List[int], board_map: Map, depth: int, turn: Turn, alpha: float, beta: float) -> float:
         if depth <= 0:
             return self.heuristic_evaluation.evaluate(player, board_map)
 
@@ -57,7 +59,7 @@ class BestReplySearch:
 
         for sequence in move_sequences:
             map_new = sequence.do(board_map)
-            value = -self._search(player, opponents, map_new, depth - 1, turn, -beta, -alpha)
+            value = -self._search(player, opponents, map_new, depth - 1, turn, alpha=-alpha, beta=-beta)
 
             if value >= beta:
                 return value

@@ -70,8 +70,8 @@ class MoveSequence(collections.Sequence):
     def __len__(self):
         return len(self.moves)
 
-    def pop(self):
-        return self.moves.pop()
+    def pop(self, index: int):
+        return self.moves.pop(index)
 
     def do(self, map: Map) -> Map:
         # Each sequence will be simulated in its own map.

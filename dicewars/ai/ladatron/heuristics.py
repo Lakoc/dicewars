@@ -15,4 +15,4 @@ class HardcodedHeuristic(Evaluation):
 
     def evaluate(self, player: int, board_map: Map) -> float:
         player_areas = board_map.board_state[board_map.board_state[:, 0] == player]
-        return 2 * player_areas.shape[0] + np.sum(player_areas[:, 1])
+        return 3 * player_areas.shape[0] + np.sum(player_areas[:, 1])
