@@ -23,7 +23,7 @@ class BestReplySearch:
         best_move: Move = moves[0]
 
         for move in moves:
-            map_copy = copy.deepcopy(board_map)
+            map_copy = board_map.copy()
             move.do(map_copy)
             value = self._search(player, opponents, board_map, depth=3, turn=Turn.MIN, alpha=-inf, beta=inf)
 
@@ -50,7 +50,7 @@ class BestReplySearch:
         for move in moves:
             # Each move will be simulated in its own board_map.
             # This is to avoid move undoing if there is only a single map instance.
-            map_copy = copy.deepcopy(board_map)
+            map_copy = board_map.copy()
             move.do(map_copy)
             value = -self._search(player, opponents, map_copy, depth - 1, turn, -beta, -alpha)
 
