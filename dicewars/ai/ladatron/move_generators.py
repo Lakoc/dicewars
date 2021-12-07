@@ -11,39 +11,39 @@ from dicewars.ai.ladatron.moves import BattleMove, Move, MoveSequence, TransferM
 class MoveGenerator(ABC):
 
     @abstractmethod
-    def generate_moves(self, player: int, map: Map) -> List[Move]:
+    def generate_moves(self, player: int, board_map: Map) -> List[Move]:
         pass
 
     @staticmethod
-    def get_dice_diff(map: Map, area1: int, area2: int):
-        return map.board_state[area1][1] - map.board_state[area2][1]
+    def get_dice_diff(board_map: Map, area1: int, area2: int):
+        return board_map.board_state[area1][1] - board_map.board_state[area2][1]
 
     @staticmethod
-    def can_transfer_dices(map: Map, area1: int, area2: int):
-        return map.board_state[area1][1] > 1 and map.board_state[area2][1] < 8
+    def can_transfer_dices(board_map: Map, area1: int, area2: int):
+        return board_map.board_state[area1][1] > 1 and board_map.board_state[area2][1] < 8
 
-    def generate_sequences(self, player: int, map: Map) -> List[MoveSequence]:
-        moves: List[Move] = self.generate_moves(player, map)
+    def generate_sequences(self, player: int, board_map: Map) -> List[MoveSequence]:
+        moves: List[Move] = self.generate_moves(player, board_map)
         sequences: List[MoveSequence] = [MoveSequence() for _ in range(len(moves))]
         for move, sequence in zip(moves, sequences):
-            map_copy: Map = map.copy()
+            map_copy: Map = board_map.copy()
             next_move: Move = move
             while next_move is not None:
                 sequence.append(next_move)
                 next_move.do(map_copy)
-                next_moves: List[Move] = self.generate_moves(player, map)
+                next_moves: List[Move] = self.generate_moves(player, board_map)
                 if len(next_moves) == 0:
                     next_move = None
                 else:
                     next_move = self._select_best_move(next_moves, map_copy)
         return sequences
 
-    def _select_best_move(self, moves: List[Move], map: Map) -> Move:
+    def _select_best_move(self, moves: List[Move], board_map: Map) -> Move:
         best_move: Move = moves[0]
         best_value: float = -inf
 
         for move in moves:
-            map_copy = map.copy()
+            map_copy = board_map.copy()
             move.do(map_copy)
             value = self.heuristic.evaluate(map_copy)
             if value > best_value:
@@ -54,23 +54,24 @@ class MoveGenerator(ABC):
 
 class DumbMoveGenerator(MoveGenerator):
 
-    def generate_moves(self, player: int, map: Map) -> List[Move]:
-        current_player_areas = np.argwhere(map.board_state[:, 0] == player).squeeze(axis=1)
+    def generate_moves(self, player: int, board_map: Map) -> List[Move]:
+        current_player_areas = np.argwhere(board_map.board_state[:, 0] == player).squeeze(axis=1)
         moves = [TransferMove(source_area, neighbour_area) if neighbour_area in current_player_areas else BattleMove(
             source_area, neighbour_area) for source_area in current_player_areas for neighbour_area in
-                 np.argwhere(map.neighborhood_m[source_area]).squeeze(axis=1)]
+                 np.argwhere(board_map.neighborhood_m[source_area]).squeeze(axis=1)]
         return moves
 
 
 class LessDumbMoveGenerator(MoveGenerator):
 
-    def generate_moves(self, player: int, map: Map) -> List[Move]:
-        current_player_areas = np.argwhere(map.board_state[:, 0] == player).squeeze(axis=1)
+    def generate_moves(self, player: int, board_map: Map) -> List[Move]:
+        current_player_areas = np.argwhere(board_map.board_state[:, 0] == player).squeeze(axis=1)
         moves = []
         for source_area in current_player_areas:
-            for neighbour_area in np.argwhere(map.neighborhood_m[source_area]).squeeze(axis=1):
-                if neighbour_area in current_player_areas and self.can_transfer_dices(map, source_area, neighbour_area):
+            for neighbour_area in np.argwhere(board_map.neighborhood_m[source_area]).squeeze(axis=1):
+                if neighbour_area in current_player_areas and self.can_transfer_dices(board_map, source_area,
+                                                                                      neighbour_area):
                     moves.append(TransferMove(source_area, neighbour_area))
-                elif self.get_dice_diff(map, source_area, neighbour_area) > 0:
+                elif self.get_dice_diff(board_map, source_area, neighbour_area) > 0:
                     moves.append(BattleMove(source_area, neighbour_area))
         return moves

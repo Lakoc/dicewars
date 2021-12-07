@@ -24,8 +24,8 @@ class AI:
         # TODO: Precompute as many moves as possible. We got 10 seconds in the constructor.
 
     def ai_turn(self, board: Board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
-        map: Map = Map.from_board(board)
-        move: MoveSequence = self.search.search(self.player_name, self.opponents, map, depth=self.depth)
+        board_map: Map = Map.from_board(board)
+        move: MoveSequence = self.search.search(self.player_name, self.opponents, board_map, depth=self.depth)
 
         return self._apply_move(move)
 
