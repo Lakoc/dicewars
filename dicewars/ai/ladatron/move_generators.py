@@ -4,11 +4,15 @@ from typing import List
 
 import numpy as np
 
+from dicewars.ai.ladatron.heuristics import Evaluation
 from dicewars.ai.ladatron.map import Map
 from dicewars.ai.ladatron.moves import BattleMove, Move, MoveSequence, TransferMove
 
 
 class MoveGenerator(ABC):
+
+    def __init__(self, heuristic: Evaluation):
+        self.heuristic = heuristic
 
     @abstractmethod
     def generate_moves(self, player: int, board_map: Map) -> List[Move]:
@@ -35,17 +39,17 @@ class MoveGenerator(ABC):
                 if len(next_moves) == 0:
                     next_move = None
                 else:
-                    next_move = self._select_best_move(next_moves, map_copy)
+                    next_move = self._select_best_move(player, next_moves, map_copy)
         return sequences
 
-    def _select_best_move(self, moves: List[Move], board_map: Map) -> Move:
+    def _select_best_move(self, player: int, moves: List[Move], board_map: Map) -> Move:
         best_move: Move = moves[0]
         best_value: float = -inf
 
         for move in moves:
             map_copy = board_map.copy()
             move.do(map_copy)
-            value = self.heuristic.evaluate(map_copy)
+            value = self.heuristic.evaluate(player, map_copy)
             if value > best_value:
                 best_move = move
                 best_value = value

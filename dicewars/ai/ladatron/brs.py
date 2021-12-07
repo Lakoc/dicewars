@@ -35,7 +35,7 @@ class BestReplySearch:
     def _search(self, player: int, opponents: List[int], board_map: Map, depth: int, turn: Turn, alpha: float,
                 beta: float) -> float:
         if depth <= 0:
-            return self.heuristic_evaluation.eval(player, board_map)
+            return self.heuristic_evaluation.evaluate(player, board_map)
 
         move_sequences: List[MoveSequence] = []
         if turn == Turn.MAX:

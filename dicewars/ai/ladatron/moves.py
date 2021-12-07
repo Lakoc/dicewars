@@ -1,9 +1,9 @@
 import collections
+import random
 from abc import ABC, abstractmethod
-from typing import _T_co, List, overload, Sequence
+from typing import List
 
 from dicewars.ai.ladatron.map import Map
-import random
 
 
 class Move(ABC):
@@ -58,22 +58,20 @@ class EndMove(Move):
         pass
 
 
-class MoveSequence(collections.Sequence[Move]):
+class MoveSequence(collections.Sequence):
 
     def __init__(self):
         super().__init__()
         self.moves: List[Move] = []
 
-    @overload
-    @abstractmethod
-    def __getitem__(self, i: int) -> _T_co: ...
-
-    @overload
-    @abstractmethod
-    def __getitem__(self, s: slice) -> Sequence[_T_co]: ...
-
     def __getitem__(self, i: int) -> Move:
         return self.moves[i]
+
+    def __len__(self):
+        return len(self.moves)
+
+    def pop(self):
+        return self.moves.pop()
 
     def do(self, map: Map) -> Map:
         # Each sequence will be simulated in its own map.
