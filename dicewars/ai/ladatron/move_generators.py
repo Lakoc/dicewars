@@ -1,15 +1,17 @@
 from abc import ABC, abstractmethod
+from math import inf
 from typing import List
 
-from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.moves import Move, TransferMove, BattleMove
 import numpy as np
+
+from dicewars.ai.ladatron.map import Map
+from dicewars.ai.ladatron.moves import BattleMove, Move, MoveSequence, TransferMove
 
 
 class MoveGenerator(ABC):
 
     @abstractmethod
-    def generate(self, player: int, map: Map) -> List[Move]:
+    def generate_moves(self, player: int, map: Map) -> List[Move]:
         pass
 
     @staticmethod
@@ -20,10 +22,39 @@ class MoveGenerator(ABC):
     def can_transfer_dices(map: Map, area1: int, area2: int):
         return map.board_state[area1][1] > 1 and map.board_state[area2][1] < 8
 
+    def generate_sequences(self, player: int, map: Map) -> List[MoveSequence]:
+        moves: List[Move] = self.generate_moves(player, map)
+        sequences: List[MoveSequence] = [MoveSequence() for _ in range(len(moves))]
+        for move, sequence in zip(moves, sequences):
+            map_copy: Map = map.copy()
+            next_move: Move = move
+            while next_move is not None:
+                sequence.append(next_move)
+                next_move.do(map_copy)
+                next_moves: List[Move] = self.generate_moves(player, map)
+                if len(next_moves) == 0:
+                    next_move = None
+                else:
+                    next_move = self._select_best_move(next_moves, map_copy)
+        return sequences
+
+    def _select_best_move(self, moves: List[Move], map: Map) -> Move:
+        best_move: Move = moves[0]
+        best_value: float = -inf
+
+        for move in moves:
+            map_copy = map.copy()
+            move.do(map_copy)
+            value = self.heuristic.evaluate(map_copy)
+            if value > best_value:
+                best_move = move
+                best_value = value
+        return best_move
+
 
 class DumbMoveGenerator(MoveGenerator):
 
-    def generate(self, player: int, map: Map) -> List[Move]:
+    def generate_moves(self, player: int, map: Map) -> List[Move]:
         current_player_areas = np.argwhere(map.board_state[:, 0] == player).squeeze(axis=1)
         moves = [TransferMove(source_area, neighbour_area) if neighbour_area in current_player_areas else BattleMove(
             source_area, neighbour_area) for source_area in current_player_areas for neighbour_area in
@@ -33,7 +64,7 @@ class DumbMoveGenerator(MoveGenerator):
 
 class LessDumbMoveGenerator(MoveGenerator):
 
-    def generate(self, player: int, map: Map) -> List[Move]:
+    def generate_moves(self, player: int, map: Map) -> List[Move]:
         current_player_areas = np.argwhere(map.board_state[:, 0] == player).squeeze(axis=1)
         moves = []
         for source_area in current_player_areas:
