@@ -10,21 +10,26 @@ from dicewars.ai.ladatron.turn import Turn
 
 class BestReplySearch:
 
-    def __init__(self, heuristic_evaluation: Evaluation, move_generator: MoveGenerator):
+    def __init__(self, heuristic_evaluation: Evaluation, move_generator: MoveGenerator,
+                 max_transfers: int, max_battles: int):
         self.heuristic_evaluation = heuristic_evaluation
         self.move_generator = move_generator
+        self.max_transfers_per_turn = max_transfers
+        self.max_battles_per_turn = max_battles
 
-    def search(self, player: int, opponents: List[int], board_map: Map, depth: int) -> MoveSequence:
+    def search(self, player: int, opponents: List[int], board_map: Map, depth: int,
+               remaining_transfers: int, remaining_attacks: int) -> MoveSequence:
         if depth <= 0:
             raise ValueError("Unexpected depth")
 
-        sequences: List[MoveSequence] = self.move_generator.generate_sequences(player, board_map)
+        sequences: List[MoveSequence] = self.move_generator.generate_sequences(player, board_map, remaining_transfers,
+                                                                               remaining_attacks)
         max_value: float = -inf
         best_sequence: MoveSequence = sequences[0]
 
         for sequence in sequences:
             map_new = sequence.do(board_map)
-            value = self._search(player, opponents, map_new, depth=3, turn=Turn.MIN, alpha=-inf, beta=inf)
+            value = self._search(player, opponents, map_new, depth=depth - 1, turn=Turn.MIN, alpha=-inf, beta=inf)
 
             if value > max_value:
                 max_value = value
@@ -39,11 +44,15 @@ class BestReplySearch:
 
         move_sequences: List[MoveSequence] = []
         if turn == Turn.MAX:
-            move_sequences += self.move_generator.generate_sequences(player, board_map)
+            move_sequences += self.move_generator.generate_sequences(player, board_map,
+                                                                     self.max_transfers_per_turn,
+                                                                     self.max_battles_per_turn)
             turn = Turn.MIN
         else:
             for opponent in opponents:
-                move_sequences += self.move_generator.generate_sequences(opponent, board_map)
+                move_sequences += self.move_generator.generate_sequences(opponent, board_map,
+                                                                         self.max_transfers_per_turn,
+                                                                         self.max_battles_per_turn)
             turn = Turn.MAX
 
         for sequence in move_sequences:

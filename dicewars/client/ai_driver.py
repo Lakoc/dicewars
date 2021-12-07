@@ -107,14 +107,14 @@ class AIDriver:
 
                 try:
                     board_copy = copy.deepcopy(self.board)
-                    with self.timer as time_left:
-                        command = self.ai.ai_turn(
-                            board_copy,
-                            self.moves_this_turn,
-                            self.transfers_this_turn,
-                            self.turns_finished,
-                            time_left
-                        )
+                    # with self.timer as time_left:
+                    command = self.ai.ai_turn(
+                        board_copy,
+                        self.moves_this_turn,
+                        self.transfers_this_turn,
+                        self.turns_finished,
+                        0 #time_left
+                    )
                     self.process_command(command)
                 except TimeoutError:
                     self.logger.warning("Forced 'end_turn' because of timeout")

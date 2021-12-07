@@ -15,20 +15,27 @@ class AI:
         self.player_name = player_name
         self.logger = logging.getLogger('AI')
         self.max_transfers = max_transfers
+        self.max_battles = 7
 
-        self.depth = 3
+        self.depth = 2
         self.opponents = list(filter(lambda x: x != self.player_name, players_order))
 
         heuristic = HardcodedHeuristic()
-        self.search = BestReplySearch(heuristic, LessDumbMoveGenerator(heuristic))
+        self.search = BestReplySearch(heuristic, LessDumbMoveGenerator(heuristic), self.max_transfers, self.max_battles)
         self.moves: MoveSequence = MoveSequence()
 
         # TODO: Precompute as many moves as possible. We got 10 seconds in the constructor.
 
     def ai_turn(self, board: Board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         if len(self.moves) == 0:
+            remaining_transfers = self.max_transfers - nb_transfers_this_turn
+            remaining_attacks = self.max_battles - nb_moves_this_turn + nb_transfers_this_turn
+
             board_map: Map = Map.from_board(board)
-            self.moves = self.search.search(self.player_name, self.opponents, board_map, depth=self.depth)
+            self.moves = self.search.search(self.player_name, self.opponents, board_map, depth=self.depth,
+                                            remaining_transfers=remaining_transfers,
+                                            remaining_attacks=remaining_attacks)
+            self.logger.info(F"Moves: {len(self.moves)}")
         move: Move = self.moves.pop()
         return self._apply_move(move)
 
