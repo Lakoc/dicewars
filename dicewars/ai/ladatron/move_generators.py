@@ -136,14 +136,14 @@ class FilteringMoveGenerator(MoveGenerator):
         current_player_areas = np.argwhere(board_map.board_state[:, 0] == player).squeeze(axis=1)
         for source_area in current_player_areas:
             for neighbour_area in np.argwhere(board_map.neighborhood_m[source_area]).squeeze(axis=1):
-                if transfers_allowed:
-                    is_neighbour_the_same_player = neighbour_area in current_player_areas
+                is_neighbour_the_same_player = neighbour_area in current_player_areas
+                if transfers_allowed and is_neighbour_the_same_player:
                     can_transfer_dices = self.can_transfer_dices(board_map, source_area, neighbour_area)
 
                     if is_neighbour_the_same_player and can_transfer_dices:
                         pass
                         # self.transfer_moves.append(TransferMove(source_area, neighbour_area))
-                if battles_allowed:
+                if battles_allowed and not is_neighbour_the_same_player:
                     source_dice = board_map.board_state[source_area][1]
                     target_dice = board_map.board_state[neighbour_area][1]
                     dice_diff = source_dice - target_dice
