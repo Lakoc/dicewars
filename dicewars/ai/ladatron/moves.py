@@ -15,11 +15,12 @@ class Move(ABC):
 
 class BattleMove(Move):
 
-    def __init__(self, source, target):
+    def __init__(self, source, target, dice_difference=None):
         super().__init__()
         self.source = source
         self.target = target
         self.minimum_wear = 4
+        self.dice_difference = dice_difference
 
     def do(self, board_map: Map):
         source_dice_count = board_map.board_state[self.source][1]
@@ -35,6 +36,8 @@ class BattleMove(Move):
             board_map.board_state[self.target][1] -= board_map.board_state[self.source][1] // self.minimum_wear
             board_map.board_state[self.source][1] = 1
 
+    def __lt__(self, other):
+        return self.dice_difference < other.dice_difference
 
 class TransferMove(Move):
 

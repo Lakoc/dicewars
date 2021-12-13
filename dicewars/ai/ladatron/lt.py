@@ -4,7 +4,7 @@ import time
 from dicewars.ai.ladatron.brs import BestReplySearch
 from dicewars.ai.ladatron.heuristics import HardcodedHeuristic
 from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.move_generators import LessDumbMoveGenerator, Move
+from dicewars.ai.ladatron.move_generators import FilteringMoveGenerator, LessDumbMoveGenerator, Move
 from dicewars.ai.ladatron.moves import BattleMove, EndMove, MoveSequence, TransferMove
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from dicewars.client.game.area import Area
@@ -19,11 +19,11 @@ class AI:
         self.max_transfers = max_transfers
         self.max_battles = 7
 
-        self.depth = 1
+        self.depth = 3
         self.opponents = list(filter(lambda x: x != self.player_name, players_order))
 
         heuristic = HardcodedHeuristic()
-        self.search = BestReplySearch(heuristic, LessDumbMoveGenerator(heuristic), self.max_transfers, self.max_battles)
+        self.search = BestReplySearch(heuristic, FilteringMoveGenerator(heuristic), self.max_transfers, self.max_battles)
         self.moves: MoveSequence = MoveSequence()
 
         # TODO: Precompute as many moves as possible. We got 10 seconds in the constructor.
