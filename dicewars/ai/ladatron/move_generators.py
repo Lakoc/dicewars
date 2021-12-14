@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 from math import inf
 from typing import List
 
@@ -9,13 +10,20 @@ from dicewars.ai.ladatron.map import Map
 from dicewars.ai.ladatron.moves import BattleMove, EndMove, Move, MoveSequence, TransferMove
 
 
+class MovesType(Enum):
+    TransferMoves = 1
+    BattleMoves = 2,
+    EndMoveOnly = 3
+
+
 class MoveGenerator(ABC):
 
     def __init__(self, heuristic: Evaluation):
         self.heuristic = heuristic
 
     @abstractmethod
-    def generate_moves(self, player: int, board_map: Map, transfers_allowed: bool, battles_allowed: bool) -> List[Move]:
+    def generate_moves(self, player: int, board_map: Map, transfers_allowed: bool, battles_allowed: bool) -> (
+            List[Move], MovesType):
         pass
 
     @staticmethod
@@ -23,8 +31,8 @@ class MoveGenerator(ABC):
         return board_map.board_state[source_area][1] > 1 and board_map.board_state[target_area][1] < 8
 
     def generate_sequences(self, player: int, board_map: Map, max_transfers, max_battles) -> List[MoveSequence]:
-        moves: List[Move] = self.generate_moves(player, board_map,
-                                                transfers_allowed=False,
+        moves, moves_type = self.generate_moves(player, board_map,
+                                                transfers_allowed=(max_transfers > 0),
                                                 battles_allowed=(max_battles > 0))
         sequences: List[MoveSequence] = [MoveSequence() for _ in range(len(moves))]
         for move, sequence in zip(moves, sequences):
@@ -36,8 +44,6 @@ class MoveGenerator(ABC):
             next_move: Move = move
             last_value = -inf
 
-            transfer_battle_flip = True
-
             while not isinstance(next_move, EndMove):
                 if isinstance(next_move, TransferMove):
                     transfers_remaining -= 1
@@ -45,23 +51,55 @@ class MoveGenerator(ABC):
                     battles_remaining -= 1
                 sequence.append(next_move)
                 next_move.do(map_copy)
-                next_moves: List[Move] = self.generate_moves(
-                    player, map_copy,
-                    transfers_allowed=(transfers_remaining > 0) and transfer_battle_flip,
-                    battles_allowed=(battles_remaining > 0) and not transfer_battle_flip)
-                if transfer_battle_flip:
-                    next_move, next_value = self._select_best_move(player, next_moves, map_copy,
-                                                                   self.heuristic.evaluate_transfer)
-                else:
-                    next_move, next_value = self._select_best_move(player, next_moves, map_copy,
-                                                                   self.heuristic.evaluate)
-                    # If the heuristic says the previous state is no better than the proposed one.
-                    if last_value >= next_value:
-                        break
-                last_value = next_value
-                transfer_battle_flip = not transfer_battle_flip
-            sequence.append(EndMove())
+
+                next_move, last_value = self._search_moves(player, map_copy, last_value,
+                                                           battles_remaining, transfers_remaining)
+            sequence.append(next_move)
         return sequences
+
+    def _search_moves(self, player, board_map, last_move_value, battles_remaining, transfers_remaining):
+        # Generate possible moves. Either transfers or battles are returned.
+        next_moves, moves_type = self.generate_moves(
+            player, board_map,
+            transfers_allowed=(transfers_remaining > 0),
+            battles_allowed=(battles_remaining > 0))
+
+        transfers_failed = False
+        battles_failed = False
+
+        while not transfers_failed or not battles_failed:
+            if moves_type == MovesType.TransferMoves:
+                next_move, next_value = self._select_best_move(player, next_moves, board_map,
+                                                               self.heuristic.evaluate_transfer)
+                if next_value > last_move_value:
+                    return next_move, next_value
+
+                # No transfer leads to a better state.
+                # So try battles instead.
+                transfers_failed = True
+                if not battles_failed:
+                    next_moves, moves_type = self.generate_moves(
+                        player, board_map,
+                        transfers_allowed=False,
+                        battles_allowed=(battles_remaining > 0))
+
+            if moves_type == MovesType.BattleMoves:
+                next_move, next_value = self._select_best_move(player, next_moves, board_map,
+                                                               self.heuristic.evaluate)
+                if next_value > last_move_value:
+                    return next_move, next_value
+
+                # No battles leads to a better state so try transfers instead.
+                battles_failed = True
+                if not transfers_failed:
+                    next_moves, moves_type = self.generate_moves(
+                        player, board_map,
+                        transfers_allowed=(transfers_remaining > 0),
+                        battles_allowed=False)
+
+            if moves_type == MovesType.EndMoveOnly:
+                break
+        return EndMove(), last_move_value
 
     def _select_best_move(self, player: int, moves: List[Move], board_map: Map, heuristic_func) -> (Move, float):
         best_move: Move = moves[0]
@@ -123,40 +161,72 @@ class FilteringMoveGenerator(MoveGenerator):
         self.battle_moves: List[BattleMove] = []
         self.transfer_moves: List[TransferMove] = []
 
-    def generate_moves(self, player: int, board_map: Map, transfers_allowed: bool, battles_allowed: bool) -> List[Move]:
+    def generate_moves(self, player: int, board_map: Map, transfers_allowed: bool, battles_allowed: bool) -> (
+            List[Move], MovesType):
         # Clear moves from last time
         self.battle_moves.clear()
         self.transfer_moves.clear()
 
-        # Generate and filter moves
-        self._generate_sensible_moves(player, board_map, transfers_allowed, battles_allowed)
+        # First, find if there are any sensible transfers that can be made.
+        if transfers_allowed:
+            self.transfer_moves = self._generate_sensible_transfers(player, board_map)
+            moves_type = MovesType.TransferMoves
+
+        if len(self.transfer_moves) == 0 and battles_allowed:
+            moves_type = MovesType.BattleMoves
+            # If there are no transfers, then resort to battles.
+            self.battle_moves = self._generate_sensible_battles(player, board_map)
+
+        # Filter moves further.
         self._filter_moves()
 
         # Put all moves together
         moves = [EndMove()]
         moves.extend(self.battle_moves)
         moves.extend(self.transfer_moves)
-        # self.battle_moves.extend(self.transfer_moves)
-        # self.battle_moves.append(EndMove())
+        if len(moves) == 1:
+            moves_type = MovesType.EndMoveOnly
+        return moves, moves_type
 
+    def _generate_sensible_transfers(self, player: int, board_map: Map) -> List[TransferMove]:
+        player_areas_mask = board_map.board_state[:, 0] == player
+        opponent_areas_mask = board_map.board_state[:, 0] != player
+
+        player_neighbourhood_mask = board_map.neighborhood_m * player_areas_mask[:, np.newaxis]
+        self_neighbourhood = player_neighbourhood_mask * player_areas_mask[np.newaxis, :]
+        opponent_neighbourhood = player_neighbourhood_mask * opponent_areas_mask[np.newaxis, :]
+
+        area_dice = board_map.board_state[:, 1]
+        area_pressure = np.matmul(opponent_neighbourhood, area_dice)
+        areas_that_need_support = area_pressure > area_dice
+
+        area_dice_comparison = area_dice[:, np.newaxis] < area_dice[np.newaxis, :]
+        areas_able_to_transfer = np.logical_and(self_neighbourhood, area_dice_comparison)
+
+        transfers = areas_able_to_transfer * areas_that_need_support[:, np.newaxis]
+        targets, sources = np.where(transfers)
+
+        moves = []
+        for i in range(len(targets)):
+            dices = board_map.board_state[[targets[i], sources[i]], 1]
+            transfer_size = dices[1] - dices[0]
+            moves.append(TransferMove(sources[i], targets[i], transfer_size))
         return moves
 
-    def _generate_sensible_moves(self, player: int, board_map: Map, transfers_allowed: bool, battles_allowed: bool):
+    def _generate_sensible_battles(self, player: int, board_map: Map) -> List[BattleMove]:
+        moves = []
         current_player_areas = np.argwhere(board_map.board_state[:, 0] == player).squeeze(axis=1)
         for source_area in current_player_areas:
             for neighbour_area in np.argwhere(board_map.neighborhood_m[source_area]).squeeze(axis=1):
                 is_neighbour_the_same_player = neighbour_area in current_player_areas
-                if transfers_allowed and is_neighbour_the_same_player:
-                    can_transfer_dices = self.can_transfer_dices(board_map, source_area, neighbour_area)
-                    if can_transfer_dices:
-                        self.transfer_moves.append(TransferMove(source_area, neighbour_area))
-                if battles_allowed and not is_neighbour_the_same_player:
+                if not is_neighbour_the_same_player:
                     source_dice = board_map.board_state[source_area][1]
                     target_dice = board_map.board_state[neighbour_area][1]
                     dice_diff = source_dice - target_dice
 
                     if dice_diff >= 1 or source_dice == 8:
-                        self.battle_moves.append(BattleMove(source_area, neighbour_area, dice_diff))
+                        moves.append(BattleMove(source_area, neighbour_area, dice_diff))
+        return moves
 
     def _filter_moves(self):
         # Return only the first N best attacks
