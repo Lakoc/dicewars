@@ -19,12 +19,12 @@ class MoveGenerator(ABC):
         pass
 
     @staticmethod
-    def can_transfer_dices(board_map: Map, area1: int, area2: int):
-        return board_map.board_state[area1][1] > 1 and board_map.board_state[area2][1] < 8
+    def can_transfer_dices(board_map: Map, source_area: int, target_area: int):
+        return board_map.board_state[source_area][1] > 1 and board_map.board_state[target_area][1] < 8
 
     def generate_sequences(self, player: int, board_map: Map, max_transfers, max_battles) -> List[MoveSequence]:
         moves: List[Move] = self.generate_moves(player, board_map,
-                                                transfers_allowed=(max_transfers > 0),
+                                                transfers_allowed=False,
                                                 battles_allowed=(max_battles > 0))
         sequences: List[MoveSequence] = [MoveSequence() for _ in range(len(moves))]
         for move, sequence in zip(moves, sequences):
@@ -36,6 +36,8 @@ class MoveGenerator(ABC):
             next_move: Move = move
             last_value = -inf
 
+            transfer_battle_flip = True
+
             while not isinstance(next_move, EndMove):
                 if isinstance(next_move, TransferMove):
                     transfers_remaining -= 1
@@ -43,25 +45,32 @@ class MoveGenerator(ABC):
                     battles_remaining -= 1
                 sequence.append(next_move)
                 next_move.do(map_copy)
-                next_moves: List[Move] = self.generate_moves(player, map_copy,
-                                                             transfers_allowed=(transfers_remaining > 0),
-                                                             battles_allowed=(battles_remaining > 0))
-                next_move, next_value = self._select_best_move(player, next_moves, map_copy)
-                # If the heuristic says the previous state is no better than the proposed one.
-                if last_value >= next_value:
-                    break
+                next_moves: List[Move] = self.generate_moves(
+                    player, map_copy,
+                    transfers_allowed=(transfers_remaining > 0) and transfer_battle_flip,
+                    battles_allowed=(battles_remaining > 0) and not transfer_battle_flip)
+                if transfer_battle_flip:
+                    next_move, next_value = self._select_best_move(player, next_moves, map_copy,
+                                                                   self.heuristic.evaluate_transfer)
+                else:
+                    next_move, next_value = self._select_best_move(player, next_moves, map_copy,
+                                                                   self.heuristic.evaluate)
+                    # If the heuristic says the previous state is no better than the proposed one.
+                    if last_value >= next_value:
+                        break
                 last_value = next_value
+                transfer_battle_flip = not transfer_battle_flip
             sequence.append(EndMove())
         return sequences
 
-    def _select_best_move(self, player: int, moves: List[Move], board_map: Map) -> (Move, float):
+    def _select_best_move(self, player: int, moves: List[Move], board_map: Map, heuristic_func) -> (Move, float):
         best_move: Move = moves[0]
         best_value: float = -inf
 
         for move in moves:
             map_copy = board_map.copy()
             move.do(map_copy)
-            value = self.heuristic.evaluate(player, map_copy)
+            value = heuristic_func(player, map_copy)
             if value > best_value:
                 best_move = move
                 best_value = value
@@ -127,8 +136,8 @@ class FilteringMoveGenerator(MoveGenerator):
         moves = [EndMove()]
         moves.extend(self.battle_moves)
         moves.extend(self.transfer_moves)
-        #self.battle_moves.extend(self.transfer_moves)
-        #self.battle_moves.append(EndMove())
+        # self.battle_moves.extend(self.transfer_moves)
+        # self.battle_moves.append(EndMove())
 
         return moves
 
@@ -139,16 +148,14 @@ class FilteringMoveGenerator(MoveGenerator):
                 is_neighbour_the_same_player = neighbour_area in current_player_areas
                 if transfers_allowed and is_neighbour_the_same_player:
                     can_transfer_dices = self.can_transfer_dices(board_map, source_area, neighbour_area)
-
-                    if is_neighbour_the_same_player and can_transfer_dices:
-                        pass
-                        # self.transfer_moves.append(TransferMove(source_area, neighbour_area))
+                    if can_transfer_dices:
+                        self.transfer_moves.append(TransferMove(source_area, neighbour_area))
                 if battles_allowed and not is_neighbour_the_same_player:
                     source_dice = board_map.board_state[source_area][1]
                     target_dice = board_map.board_state[neighbour_area][1]
                     dice_diff = source_dice - target_dice
 
-                    if dice_diff > 2 or source_dice == 8:
+                    if dice_diff >= 1 or source_dice == 8:
                         self.battle_moves.append(BattleMove(source_area, neighbour_area, dice_diff))
 
     def _filter_moves(self):
