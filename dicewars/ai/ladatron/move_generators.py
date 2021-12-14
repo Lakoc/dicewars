@@ -155,9 +155,11 @@ class LessDumbMoveGenerator(MoveGenerator):
 
 class FilteringMoveGenerator(MoveGenerator):
 
-    def __init__(self, heuristic: Evaluation, max_attacks=4):
+    def __init__(self, heuristic: Evaluation, max_attacks=4, max_transfers=4):
         super().__init__(heuristic)
         self.max_attacks = max_attacks
+        self.max_transfers = max_transfers
+
         self.battle_moves: List[BattleMove] = []
         self.transfer_moves: List[TransferMove] = []
 
@@ -229,6 +231,10 @@ class FilteringMoveGenerator(MoveGenerator):
         return moves
 
     def _filter_moves(self):
-        # Return only the first N best attacks
+        # Select the first N best attacks
         self.battle_moves.sort(reverse=True)
         self.battle_moves = self.battle_moves[:self.max_attacks]
+
+        # Select the best N transfers
+        self.transfer_moves.sort(reverse=True)
+        self.transfer_moves = self.transfer_moves[:self.max_transfers]

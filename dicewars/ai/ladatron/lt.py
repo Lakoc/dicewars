@@ -19,7 +19,7 @@ class AI:
         self.max_transfers = max_transfers
         self.max_battles = 7
 
-        self.depth = 1
+        self.depth = 3
         self.opponents = list(filter(lambda x: x != self.player_name, players_order))
 
         heuristic = HardcodedHeuristic()

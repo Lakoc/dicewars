@@ -24,12 +24,12 @@ class BestReplySearch:
 
         sequences: List[MoveSequence] = self.move_generator.generate_sequences(player, board_map, remaining_transfers,
                                                                                remaining_attacks)
-        max_value: float = -inf
         best_sequence: MoveSequence = sequences[0]
 
         if len(sequences) == 1:
             return best_sequence
 
+        max_value = -inf
         for sequence in sequences:
             map_new = sequence.do(board_map)
             value = self._search(player, opponents, map_new, depth=depth - 1, turn=Turn.MIN, alpha=-inf, beta=inf)
@@ -40,26 +40,35 @@ class BestReplySearch:
 
         return best_sequence
 
-    def _search(self, player: int, opponents: List[int], board_map: Map, depth: int, turn: Turn, alpha: float, beta: float) -> float:
+    def _search(self, player: int, opponents: List[int], board_map: Map, depth: int, turn: Turn, alpha: float,
+                beta: float) -> float:
         if depth <= 0:
-            return self.heuristic_evaluation.evaluate(player, board_map)
+            return self.heuristic_evaluation.evaluate(player, board_map)  # + \
+            # self.heuristic_evaluation.evaluate_transfer(player, board_map)
 
-        move_sequences: List[MoveSequence] = []
+        max_alpha = alpha
         if turn == Turn.MAX:
-            move_sequences += self.move_generator.generate_sequences(player, board_map,
-                                                                     self.max_transfers_per_turn,
-                                                                     self.max_battles_per_turn)
-            turn = Turn.MIN
+            move_sequences: List[MoveSequence] = self.move_generator.generate_sequences(player, board_map,
+                                                                                        self.max_transfers_per_turn,
+                                                                                        self.max_battles_per_turn)
+            max_alpha = max(max_alpha, self._do_moves(move_sequences, player, opponents, board_map,
+                                                      depth, turn, alpha, beta))
         else:
             for opponent in opponents:
-                move_sequences += self.move_generator.generate_sequences(opponent, board_map,
-                                                                         self.max_transfers_per_turn,
-                                                                         self.max_battles_per_turn)
-            turn = Turn.MAX
+                move_sequences: List[MoveSequence] = self.move_generator.generate_sequences(opponent, board_map,
+                                                                                            self.max_transfers_per_turn,
+                                                                                            self.max_battles_per_turn)
+                max_alpha = max(max_alpha, self._do_moves(move_sequences, player, opponents, board_map,
+                                                          depth, turn, alpha, beta))
 
+        return max_alpha
+
+    def _do_moves(self, move_sequences, player: int, opponents: List[int], board_map: Map, depth: int, turn: Turn,
+                  alpha: float, beta: float) -> float:
         for sequence in move_sequences:
             map_new = sequence.do(board_map)
-            value = -self._search(player, opponents, map_new, depth - 1, turn, alpha=-alpha, beta=-beta)
+            next_turn = turn.MAX if turn == turn.MIN else turn.MIN
+            value = -self._search(player, opponents, map_new, depth - 1, next_turn, alpha=-beta, beta=-alpha)
 
             if value >= beta:
                 return value

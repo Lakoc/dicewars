@@ -52,6 +52,8 @@ class TransferMove(Move):
         board_map.board_state[self.source][1] = 1
         board_map.board_state[self.target][1] += source_area_count_over
 
+    def __lt__(self, other):
+        return self.dice < other.dice
 
 class EndMove(Move):
 
