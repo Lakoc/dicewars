@@ -30,7 +30,7 @@ class BattleMove(Move):
         attack_power = random.randint(source_dice_count, source_dice_count * 6)
         def_power = random.randint(target_dice_count, target_dice_count * 6)
 
-        if attack_power > def_power:
+        if source_dice_count >= target_dice_count:
             board_map.board_state[self.target][0] = board_map.board_state[self.source][0]
             board_map.board_state[self.target][1] = board_map.board_state[self.source][1] - 1
             board_map.board_state[self.source][1] = 1
