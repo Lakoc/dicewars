@@ -34,7 +34,10 @@ class BestReplySearch:
             map_new = sequence.do(board_map)
             value = self._search(player, opponents, map_new, depth=depth - 1, turn=Turn.MIN, alpha=-inf, beta=inf)
 
-            if value > max_value:
+            # Select the sequence that produces better score or
+            # the longer sequence if scores are equal.
+            if value > max_value or \
+                    (value == max_value and len(sequence) > len(best_sequence)):
                 max_value = value
                 best_sequence = sequence
 
