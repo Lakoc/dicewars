@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
 from dicewars.ai.ladatron.map import Map
+from dicewars.ai.ladatron.utils import border_distance
 
 
 class Evaluation(ABC):
@@ -26,10 +28,13 @@ class HardcodedDumbHeuristic(Evaluation):
 
 class HardcodedHeuristic(Evaluation):
 
+    def __init__(self):
+        self.distance_from_border_limit = 5
+
     def evaluate(self, player: int, board_map: Map) -> float:
         player_areas = board_map.board_state[board_map.board_state[:, 0] == player]
-        border_dice_diff = self._get_border_dices_diff(player, board_map)
-        return 10 * player_areas.shape[0]  # + border_dice_diff
+        # border_dice_diff = self._get_border_dices_diff(player, board_map)
+        return 4096 * player_areas.shape[0] + self.evaluate_transfer(player, board_map)
 
     def _get_border_dices_diff(self, player, board_map):
         player_areas_mask = board_map.board_state[:, 0] == player
@@ -42,8 +47,13 @@ class HardcodedHeuristic(Evaluation):
         return player_border_dice - opponent_border_dice
 
     def evaluate_transfer(self, player: int, board_map: Map) -> float:
-        dice_diff = self._get_border_dices_diff(player, board_map)
-        return dice_diff
+        player_areas_mask = board_map.board_state[:, 0] == player
+        player_areas_dice = board_map.board_state[player_areas_mask, 1]
+        distances = border_distance(player, board_map, max_depth=self.distance_from_border_limit)
+        distances[distances == -1] = self.distance_from_border_limit
+        weighted_players_dice = player_areas_dice * (self.distance_from_border_limit - distances[player_areas_mask])
+        weighted_dice_total = np.sum(weighted_players_dice)
+        return weighted_dice_total
 
     def _size_of_largest_area(self, player: int, board_map: Map):
         """Find continuous area controlled by"""

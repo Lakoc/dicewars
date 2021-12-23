@@ -43,11 +43,12 @@ class BattleMove(Move):
 
 class TransferMove(Move):
 
-    def __init__(self, source, target, dice):
+    def __init__(self, source, target, dice, weight):
         super().__init__()
         self.source = source
         self.target = target
         self.dice = dice
+        self.weight = weight
 
     def do(self, board_map: Map):
         # source_area_count_over = board_map.board_state[self.source][1] - 1
@@ -55,7 +56,7 @@ class TransferMove(Move):
         board_map.board_state[self.target][1] += self.dice
 
     def __lt__(self, other):
-        return self.dice < other.dice
+        return self.weight < other.weight
 
 class EndMove(Move):
 

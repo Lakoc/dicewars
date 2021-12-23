@@ -1,7 +1,9 @@
 import numpy as np
 
+from dicewars.ai.ladatron.map import Map
 
-def border_distance(player, board_map, max_depth):
+
+def border_distance(player: int, board_map: Map, max_depth: int) -> np.ndarray:
     player_areas_mask = board_map.board_state[:, 0] == player
     opponent_areas_mask = board_map.board_state[:, 0] != player
     neighbourhood_with_opponents = board_map.neighborhood_m * player_areas_mask[:, np.newaxis] * \

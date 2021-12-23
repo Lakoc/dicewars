@@ -17,7 +17,7 @@ class AI:
         self.player_name = player_name
         self.logger = logging.getLogger('AI')
         self.max_transfers = max_transfers
-        self.max_battles = 7
+        self.max_battles = 15
 
         self.depth = 3
         self.opponents = list(filter(lambda x: x != self.player_name, players_order))

@@ -73,7 +73,7 @@ class BestReplySearch:
             next_turn = turn.MAX if turn == turn.MIN else turn.MIN
             value = self._search(player, opponents, map_new, depth - 1, next_turn, alpha=-beta, beta=-alpha)
             if turn == turn.MAX:
-                #if value > beta:
+                # if value > beta:
                 #    return value
                 alpha = max(alpha, value)  # (20 > -inf) => alpha = 20
             else:

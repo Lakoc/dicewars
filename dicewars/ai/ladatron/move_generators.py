@@ -71,7 +71,7 @@ class MoveGenerator(ABC):
         while not transfers_failed or not battles_failed:
             if moves_type == MovesType.TransferMoves:
                 next_move, next_value = self._select_best_move(player, next_moves, board_map,
-                                                               self.heuristic.evaluate_transfer)
+                                                               self.heuristic.evaluate)
                 if next_value > last_move_value:
                     return next_move, next_value
 
@@ -197,7 +197,7 @@ class FilteringMoveGenerator(MoveGenerator):
         player_areas_mask = board_map.board_state[:, 0] == player
         opponent_areas_mask = board_map.board_state[:, 0] != player
 
-        transferable_areas = board_map.board_state[:, 1] > 1 * player_areas_mask
+        transferable_areas = (board_map.board_state[:, 1] > 1) * player_areas_mask
         distance_to_border_mask = distance[np.newaxis, :] <= distance[:, np.newaxis]
         distance_to_border_mask[:, opponent_areas_mask] = False
         np.fill_diagonal(distance_to_border_mask, False)
@@ -206,11 +206,16 @@ class FilteringMoveGenerator(MoveGenerator):
         dist_strength = np.max(distance) - distance
         sources, targets = np.where(possible_transfers)
 
+        sources_dice = board_map.board_state[sources, 1]
+        targets_dice = board_map.board_state[targets, 1]
+        can_transfer_dice = sources_dice - 1
+        can_receive_dice = 8 - targets_dice
+        transfer_dice = np.minimum(can_transfer_dice, can_receive_dice)
         moves = []
         for i in range(len(targets)):
-            dices = board_map.board_state[[targets[i], sources[i]], 1]
-            transfer_size = dices[1] - dices[0]
-            moves.append(TransferMove(sources[i], targets[i], transfer_size * dist_strength[targets[i]]))
+            transfer_size = transfer_dice[i]
+            moves.append(TransferMove(sources[i], targets[i], transfer_size,
+                                      transfer_size + 0.5 * dist_strength[targets[i]]))
         return moves
 
     def _generate_sensible_battles(self, player: int, board_map: Map) -> List[BattleMove]:
