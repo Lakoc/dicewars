@@ -60,7 +60,7 @@ class BestReplySearch:
                                                                                             self.max_battles_per_turn)
                 max_alpha = max(max_alpha, self._do_moves(move_sequences, player, opponents, board_map,
                                                           depth, turn, alpha, beta))
-
+            max_alpha = -max_alpha
         return max_alpha
 
     def _do_moves(self, move_sequences, player: int, opponents: List[int], board_map: Map, depth: int, turn: Turn,
@@ -68,10 +68,13 @@ class BestReplySearch:
         for sequence in move_sequences:
             map_new = sequence.do(board_map)
             next_turn = turn.MAX if turn == turn.MIN else turn.MIN
-            value = -self._search(player, opponents, map_new, depth - 1, next_turn, alpha=-beta, beta=-alpha)
-
-            if value >= beta:
-                return value
-            alpha = max(alpha, value)
-
+            value = self._search(player, opponents, map_new, depth - 1, next_turn, alpha=-beta, beta=-alpha)
+            if turn == turn.MAX:
+                #if value > beta:
+                #    return value
+                alpha = max(alpha, value)  # (20 > -inf) => alpha = 20
+            else:
+                alpha = max(alpha, -value)
+                if -value > beta:
+                    return value
         return alpha
