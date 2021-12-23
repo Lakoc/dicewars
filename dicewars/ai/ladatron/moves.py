@@ -3,6 +3,8 @@ import random
 from abc import ABC, abstractmethod
 from typing import List
 
+import numpy as np
+
 from dicewars.ai.ladatron.map import Map
 
 
@@ -48,9 +50,9 @@ class TransferMove(Move):
         self.dice = dice
 
     def do(self, board_map: Map):
-        source_area_count_over = board_map.board_state[self.source][1] - 1
-        board_map.board_state[self.source][1] = 1
-        board_map.board_state[self.target][1] += source_area_count_over
+        # source_area_count_over = board_map.board_state[self.source][1] - 1
+        board_map.board_state[self.source][1] -= self.dice
+        board_map.board_state[self.target][1] += self.dice
 
     def __lt__(self, other):
         return self.dice < other.dice
