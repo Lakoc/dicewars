@@ -8,6 +8,7 @@ import numpy as np
 from dicewars.ai.ladatron.heuristics import Evaluation
 from dicewars.ai.ladatron.map import Map
 from dicewars.ai.ladatron.moves import BattleMove, EndMove, Move, MoveSequence, TransferMove
+from dicewars.ai.ladatron.utils import border_distance
 
 
 class MovesType(Enum):
@@ -155,10 +156,11 @@ class LessDumbMoveGenerator(MoveGenerator):
 
 class FilteringMoveGenerator(MoveGenerator):
 
-    def __init__(self, heuristic: Evaluation, max_attacks=4, max_transfers=4):
+    def __init__(self, heuristic: Evaluation, max_attacks=4, max_transfers=4, max_border_distance=4):
         super().__init__(heuristic)
         self.max_attacks = max_attacks
         self.max_transfers = max_transfers
+        self.max_border_distance = max_border_distance
 
         self.battle_moves: List[BattleMove] = []
         self.transfer_moves: List[TransferMove] = []
@@ -191,6 +193,8 @@ class FilteringMoveGenerator(MoveGenerator):
         return moves, moves_type
 
     def _generate_sensible_transfers(self, player: int, board_map: Map) -> List[TransferMove]:
+
+        distance = border_distance(player, board_map, self.max_border_distance)
         player_areas_mask = board_map.board_state[:, 0] == player
         opponent_areas_mask = board_map.board_state[:, 0] != player
 
