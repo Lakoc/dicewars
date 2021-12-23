@@ -8,6 +8,7 @@ import numpy as np
 from dicewars.ai.ladatron.heuristics import Evaluation
 from dicewars.ai.ladatron.map import Map
 from dicewars.ai.ladatron.moves import BattleMove, EndMove, Move, MoveSequence, TransferMove
+from dicewars.ai.ladatron.utils import border_distance
 
 
 class MovesType(Enum):
@@ -155,10 +156,11 @@ class LessDumbMoveGenerator(MoveGenerator):
 
 class FilteringMoveGenerator(MoveGenerator):
 
-    def __init__(self, heuristic: Evaluation, max_attacks=4, max_transfers=4):
+    def __init__(self, heuristic: Evaluation, max_attacks=4, max_transfers=4, max_border_distance=4):
         super().__init__(heuristic)
         self.max_attacks = max_attacks
         self.max_transfers = max_transfers
+        self.max_border_distance = max_border_distance
 
         self.battle_moves: List[BattleMove] = []
         self.transfer_moves: List[TransferMove] = []
@@ -191,28 +193,24 @@ class FilteringMoveGenerator(MoveGenerator):
         return moves, moves_type
 
     def _generate_sensible_transfers(self, player: int, board_map: Map) -> List[TransferMove]:
+        distance = border_distance(player, board_map, self.max_border_distance)
         player_areas_mask = board_map.board_state[:, 0] == player
         opponent_areas_mask = board_map.board_state[:, 0] != player
 
-        player_neighbourhood_mask = board_map.neighborhood_m * player_areas_mask[:, np.newaxis]
-        self_neighbourhood = player_neighbourhood_mask * player_areas_mask[np.newaxis, :]
-        opponent_neighbourhood = player_neighbourhood_mask * opponent_areas_mask[np.newaxis, :]
+        transferable_areas = board_map.board_state[:, 1] > 1 * player_areas_mask
+        distance_to_border_mask = distance[np.newaxis, :] <= distance[:, np.newaxis]
+        distance_to_border_mask[:, opponent_areas_mask] = False
+        np.fill_diagonal(distance_to_border_mask, False)
+        possible_transfers = distance_to_border_mask * transferable_areas[:, np.newaxis] * board_map.neighborhood_m
 
-        area_dice = board_map.board_state[:, 1]
-        area_pressure = np.matmul(opponent_neighbourhood, area_dice)
-        areas_that_need_support = area_pressure > area_dice
-
-        area_dice_comparison = area_dice[:, np.newaxis] < area_dice[np.newaxis, :]
-        areas_able_to_transfer = np.logical_and(self_neighbourhood, area_dice_comparison)
-
-        transfers = areas_able_to_transfer * areas_that_need_support[:, np.newaxis]
-        targets, sources = np.where(transfers)
+        dist_strength = np.max(distance) - distance
+        sources, targets = np.where(possible_transfers)
 
         moves = []
         for i in range(len(targets)):
             dices = board_map.board_state[[targets[i], sources[i]], 1]
             transfer_size = dices[1] - dices[0]
-            moves.append(TransferMove(sources[i], targets[i], transfer_size))
+            moves.append(TransferMove(sources[i], targets[i], transfer_size * dist_strength[targets[i]]))
         return moves
 
     def _generate_sensible_battles(self, player: int, board_map: Map) -> List[BattleMove]:
