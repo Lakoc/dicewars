@@ -3,8 +3,22 @@ import json
 from json.decoder import JSONDecodeError
 import logging
 import signal
+import uuid
+import pickle
+import numpy as np
 
 from .timers import FischerTimer, FixedTimer
+from dicewars.ai.ladatron.map import Map
+
+
+def get_features(board):
+    return Map.from_board(board)
+
+
+def create_lose_board(last_board_state, winner):
+    board_map_loss = last_board_state.copy()
+    board_map_loss.board_state[:, 0] = winner
+    return board_map_loss
 
 
 class TimeoutError(Exception):
@@ -34,6 +48,7 @@ class EndTurnCommand:
 class AIDriver:
     """Basic AI agent implementation
     """
+
     def __init__(self, game, ai_constructor, config):
         """
         Parameters
@@ -59,8 +74,10 @@ class AIDriver:
         fischer_increment = config.getfloat('FischerIncrement')
 
         self.ai_disabled = False
+        self.board_states = []
         try:
             board_copy = copy.deepcopy(self.board)
+            self.board_states.append(get_features(board_copy))
             players_order_copy = copy.deepcopy(self.game.players_order)
             with FixedTimer(time_limit_constructor):
                 self.ai = ai_constructor(
@@ -107,14 +124,15 @@ class AIDriver:
 
                 try:
                     board_copy = copy.deepcopy(self.board)
-                    # with self.timer as time_left:
-                    command = self.ai.ai_turn(
-                        board_copy,
-                        self.moves_this_turn,
-                        self.transfers_this_turn,
-                        self.turns_finished,
-                        0 #time_left
-                    )
+                    with self.timer as time_left:
+                        command = self.ai.ai_turn(
+                            board_copy,
+                            self.moves_this_turn,
+                            self.transfers_this_turn,
+                            self.turns_finished,
+                            time_left
+                        )
+                    self.board_states.append(get_features(board_copy))
                     self.process_command(command)
                 except TimeoutError:
                     self.logger.warning("Forced 'end_turn' because of timeout")
@@ -153,6 +171,13 @@ class AIDriver:
 
         elif msg['type'] == 'game_end':
             self.logger.info("Player {} has won".format(msg['winner']))
+            heuristic_max = 1 if msg['winner'] == self.player_name else -1
+            if heuristic_max == -1:
+                self.board_states.append(create_lose_board(self.board_states[-1], msg['winner']))
+            state_val = np.linspace(0, heuristic_max, len(self.board_states))
+            data = list(zip(state_val, self.board_states))
+            with open(f'../dataset/{self.player_name}_{uuid.uuid1()}.pkl', 'wb') as f:
+                pickle.dump(data, f)
             self.game.socket.close()
             return False
 
