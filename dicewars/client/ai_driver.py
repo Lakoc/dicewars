@@ -1,5 +1,6 @@
 import copy
 import json
+import os
 from json.decoder import JSONDecodeError
 import logging
 import signal
@@ -176,8 +177,11 @@ class AIDriver:
                 self.board_states.append(create_lose_board(self.board_states[-1], msg['winner']))
             state_val = np.linspace(0, heuristic_max, len(self.board_states))
             data = list(zip(state_val, self.board_states))
-            with open(f'../dataset/{self.player_name}_{uuid.uuid1()}.pkl', 'wb') as f:
+            # Save game boards to a file
+            os.makedirs('dataset', exist_ok=True)
+            with open(f'dataset/{self.player_name}_{uuid.uuid1()}.pkl', 'wb') as f:
                 pickle.dump(data, f)
+
             self.game.socket.close()
             return False
 
