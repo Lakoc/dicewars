@@ -2,8 +2,10 @@ import os
 import time
 
 import torch.utils.data
+from torch.utils.tensorboard import SummaryWriter
 
 from dicewars.ai.ladatron.ml.losses import SingleGPULossCompute
+from dicewars.ai.ladatron.utils import make_timestamped_dir
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -13,49 +15,64 @@ def prepare_save_path(save_dir, epoch_num, batch_num):
     return os.path.join(save_dir, F"model_{epoch_num}_{batch_num}.weights")
 
 
-def run_epoch(data_iter, model: torch.nn.Module, loss_compute, verbose: bool, log_interval: int, save_model=False,
-              epoch=-1, save_dir='models/'):
-    model = model.to(device)
-    total_loss = 0
+class Trainer():
 
-    for batch_idx, batch in enumerate(data_iter):
-        features, heuristics = batch
-        features = features.to(device)
-        heuristics = heuristics.to(device)
+    def __init__(self):
+        self.tensorboard_logdir = make_timestamped_dir('tblogs/')
+        self.writer = SummaryWriter(log_dir=self.tensorboard_logdir)
+        self.batch_indices = {}
 
-        batch_size = features.size(0)
+    def __del__(self):
+        self.writer.close()
 
-        predicted_logits = model.forward(features)
-        loss = loss_compute(predicted_logits, heuristics)
-        total_loss += loss
+    def run_epoch(self, data_iter, model: torch.nn.Module, loss_compute, verbose: bool, log_interval: int, epoch: int,
+                  run_type: str, save_model=False, save_dir='models/'):
+        model = model.to(device)
+        total_loss = 0
 
-        if verbose and batch_idx % log_interval == 0:
-            print("Epoch step: {:5d}/{:5d} Loss: {:5.3f}".format(
-                batch_idx + 1, int(len(data_iter) / batch_size), loss / batch_size))
-            if save_model:
-                torch.save(model.state_dict(), prepare_save_path(save_dir, epoch, batch_idx))
+        for batch_idx, batch in enumerate(data_iter):
+            features, heuristics = batch
+            features = features.to(device)
+            heuristics = heuristics.to(device)
 
+            batch_size = features.size(0)
 
-def train(model: torch.nn.Module, num_epochs, train_iter, valid_iter, save_dir, verbose, log_interval=10, lr=1e-3,
-          lr_decay=0.05):
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    criterion = torch.nn.MSELoss()
-    lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=lr_decay)
+            predicted_logits = model.forward(features)
+            loss = loss_compute(predicted_logits, heuristics)
+            total_loss += loss
+            self.writer.add_scalar(F"Loss/{run_type}_train", loss, self.batch_indices[run_type])
 
-    epoch_start_time = time.time()
-    for epoch in range(num_epochs):
-        model.train()
-        run_epoch(train_iter, model, SingleGPULossCompute(model, criterion, optimizer), verbose,
-                  log_interval=log_interval)
-        model.eval()
-        run_epoch(valid_iter, model, SingleGPULossCompute(model, criterion), verbose,
-                  log_interval=log_interval)
+            if verbose and batch_idx % log_interval == 0:
+                print("Epoch step: {:5d}/{:5d} Loss: {:5.3f}".format(
+                    batch_idx + 1, int(len(data_iter) / batch_size), loss / batch_size))
+                if save_model:
+                    torch.save(model.state_dict(), prepare_save_path(save_dir, epoch, batch_idx))
+            self.batch_indices[run_type] += 1
 
-        print('-' * 59)
-        print('| end of epoch {:3d} | time: {:5.2f}s | '
-              .format(epoch, time.time() - epoch_start_time))
-        print('-' * 59)
+    def train(self, model: torch.nn.Module, num_epochs, train_iter, valid_iter, save_dir, verbose, log_interval=10,
+              lr=1e-3,
+              lr_decay=0.05):
+        self.batch_indices['train'] = 0
+        self.batch_indices['valid'] = 0
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        criterion = torch.nn.MSELoss()
+        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=lr_decay)
+
         epoch_start_time = time.time()
-        lr_scheduler.step()
+        for epoch in range(num_epochs):
+            model.train()
+            self.run_epoch(train_iter, model, SingleGPULossCompute(model, criterion, optimizer), verbose,
+                           log_interval, epoch, 'train')
+            model.eval()
+            self.run_epoch(valid_iter, model, SingleGPULossCompute(model, criterion), verbose,
+                           log_interval, epoch, 'valid')
 
-        torch.save(model.state_dict(), prepare_save_path(save_dir, epoch, 'end'))
+            print('-' * 59)
+            print('| end of epoch {:3d} | time: {:5.2f}s | '
+                  .format(epoch, time.time() - epoch_start_time))
+            print('-' * 59)
+            epoch_start_time = time.time()
+            lr_scheduler.step()
+
+            torch.save(model.state_dict(), prepare_save_path(save_dir, epoch, 'end'))

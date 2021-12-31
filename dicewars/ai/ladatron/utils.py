@@ -1,4 +1,8 @@
+import os
+from datetime import datetime
+
 import numpy as np
+import torch
 
 from dicewars.ai.ladatron.map import Map
 
@@ -29,3 +33,60 @@ def border_distance(player: int, board_map: Map, max_depth: int) -> np.ndarray:
         areas_to_visit = neighbours
 
     return dist
+
+
+def normalize_to_range(tensor, range, min_value=None, max_value=None):
+    """
+    Normalizes the tensor to the given range.
+    The lower bound of the range is mapped to the minimal value of the given tensor.
+    The uppoer bound of the range is mapped to the maximal value of the given tensor.
+    For example:
+    range = [0, 1]
+    tensor = [4, 6, 8]
+    normalized_tensor = [0, 0.5, 1]
+    4 -> 0
+    8 -> 1
+    Parameters
+    ----------
+    tensor      A tensor to normalize.
+    range       Expected range of values.
+    Returns
+    -------
+    normalized_tensor
+    """
+
+    if min_value is None:
+        min_value = torch.min(tensor)
+    else:
+        min_value = torch.tensor(min_value)
+    if max_value is None:
+        max_value = torch.max(tensor)
+    else:
+        max_value = torch.tensor(max_value)
+
+    tensor_zero_one = (tensor - min_value) / (max_value - min_value)
+
+    range_width = range[1] - range[0]
+    tensor_normalized = tensor_zero_one * range_width + range[0]
+    return tensor_normalized
+
+
+def get_current_timestamp():
+    return datetime.now().strftime("%Y%m%d-%H%M%S-%f")[:-3]
+
+
+def make_timestamped_dir(path: str) -> str:
+    """
+    Creates a new directory with a name of a current timestamp
+    in a location defined by 'path'.
+    Parameters
+    ----------
+    path    string : Location of the new directory.
+    Returns
+    -------
+    Returns path to the new directory.
+    """
+    timestamp = get_current_timestamp()
+    subdir = os.path.join(path, timestamp)
+    os.makedirs(subdir, exist_ok=True)
+    return subdir

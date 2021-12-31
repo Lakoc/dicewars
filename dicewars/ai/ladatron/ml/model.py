@@ -3,6 +3,7 @@ from torch import nn
 
 
 class Network(torch.nn.Module):
+
     def __init__(self, input_features, output_features):
         super(Network, self).__init__()
         hidden_dims = [32]
