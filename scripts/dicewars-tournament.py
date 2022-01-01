@@ -53,7 +53,7 @@ PLAYING_AIs = [
     'kb.stei_adt',
     'kb.stei_at',
     'kb.stei_dt',
-    'ladatron.lt'
+    'xpolok03.ladatron'
     # 'kb.xlogin42',
     # 'kb.xlogin00',
 ]

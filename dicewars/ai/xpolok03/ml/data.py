@@ -9,8 +9,8 @@ import torch.utils.data
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import random_split
 
-from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.utils import border_distance, normalize_to_range
+from dicewars.ai.xpolok03.map import Map
+from dicewars.ai.xpolok03.utils import border_distance, normalize_to_range
 
 
 class DataGenerator(torch.utils.data.Dataset):

@@ -5,7 +5,7 @@ from typing import List
 
 import numpy as np
 
-from dicewars.ai.ladatron.map import Map
+from dicewars.ai.xpolok03.map import Map
 
 
 class Move(ABC):

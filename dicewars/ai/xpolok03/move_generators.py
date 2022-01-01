@@ -5,10 +5,10 @@ from typing import List
 
 import numpy as np
 
-from dicewars.ai.ladatron.heuristics import Evaluation
-from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.moves import BattleMove, EndMove, Move, MoveSequence, TransferMove
-from dicewars.ai.ladatron.utils import border_distance
+from dicewars.ai.xpolok03.heuristics import Evaluation
+from dicewars.ai.xpolok03.map import Map
+from dicewars.ai.xpolok03.moves import BattleMove, EndMove, Move, MoveSequence, TransferMove
+from dicewars.ai.xpolok03.utils import border_distance
 
 
 class MovesType(Enum):

@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import torch
 
-from dicewars.ai.ladatron.map import Map
+from dicewars.ai.xpolok03.map import Map
 
 
 def border_distance(player: int, board_map: Map, max_depth: int) -> np.ndarray:

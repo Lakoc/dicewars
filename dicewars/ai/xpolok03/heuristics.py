@@ -5,10 +5,10 @@ import torch
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
-from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.ml.data import extract_features
-from dicewars.ai.ladatron.ml.model import Network
-from dicewars.ai.ladatron.utils import border_distance
+from dicewars.ai.xpolok03.map import Map
+from dicewars.ai.xpolok03.ml.data import extract_features
+from dicewars.ai.xpolok03.ml.model import Network
+from dicewars.ai.xpolok03.utils import border_distance
 
 
 class Evaluation(ABC):
@@ -68,7 +68,7 @@ class NeuralNeuristic(Evaluation):
 
     def __init__(self):
         self.model = Network(input_features=5, output_features=1)
-        self.model.load_state_dict(torch.load('dicewars/ai/ladatron/ml/models/model_40_end.weights'))
+        self.model.load_state_dict(torch.load('dicewars/ai/xpolok03/ml/models/model_40_end.weights'))
         self.distance_from_border_limit = 5
 
     def evaluate(self, player: int, board_map: Map) -> float:

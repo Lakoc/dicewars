@@ -1,11 +1,11 @@
 from math import inf
 from typing import List
 
-from dicewars.ai.ladatron.heuristics import Evaluation
-from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.move_generators import MoveGenerator
-from dicewars.ai.ladatron.moves import MoveSequence
-from dicewars.ai.ladatron.turn import Turn
+from dicewars.ai.xpolok03.heuristics import Evaluation
+from dicewars.ai.xpolok03.map import Map
+from dicewars.ai.xpolok03.move_generators import MoveGenerator
+from dicewars.ai.xpolok03.moves import MoveSequence
+from dicewars.ai.xpolok03.turn import Turn
 
 
 class BestReplySearch:
