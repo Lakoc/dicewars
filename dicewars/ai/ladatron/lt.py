@@ -2,7 +2,7 @@ import logging
 import time
 
 from dicewars.ai.ladatron.brs import BestReplySearch
-from dicewars.ai.ladatron.heuristics import HardcodedHeuristic
+from dicewars.ai.ladatron.heuristics import HardcodedHeuristic, NeuralNeuristic
 from dicewars.ai.ladatron.map import Map
 from dicewars.ai.ladatron.move_generators import FilteringMoveGenerator, LessDumbMoveGenerator, Move
 from dicewars.ai.ladatron.moves import BattleMove, EndMove, MoveSequence, TransferMove
@@ -19,10 +19,10 @@ class AI:
         self.max_transfers = max_transfers
         self.max_battles = 15
 
-        self.depth = 3
+        self.depth = 1
         self.opponents = list(filter(lambda x: x != self.player_name, players_order))
 
-        heuristic = HardcodedHeuristic()
+        heuristic = NeuralNeuristic()
         self.search = BestReplySearch(heuristic, FilteringMoveGenerator(heuristic), self.max_transfers, self.max_battles)
         self.moves: MoveSequence = MoveSequence()
 

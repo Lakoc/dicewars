@@ -81,11 +81,11 @@ class Trainer():
 
 
 if __name__ == "__main__":
-    batch_size = 4
+    batch_size = 16
     train_data_loader = get_train_data_loader(batch_size=batch_size)
     valid_data_loader = get_test_data_loader(batch_size=batch_size)
 
-    model = Network(input_features=4, output_features=1)
+    model = Network(input_features=5, output_features=1)
     trainer = Trainer()
     trainer.train(model, 100, train_data_loader, valid_data_loader,
                   'dicewars/ai/ladatron/ml/models', verbose=False, log_interval=100, lr=0.005)

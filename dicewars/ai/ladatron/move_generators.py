@@ -34,7 +34,7 @@ class MoveGenerator(ABC):
     def generate_sequences(self, player: int, board_map: Map, max_transfers, max_battles) -> List[MoveSequence]:
         moves, moves_type = self.generate_moves(player, board_map,
                                                 transfers_allowed=(max_transfers > 0),
-                                                battles_allowed=(max_battles > 0))
+                                                battles_allowed=(max_battles > 0), transfer_priority=True)
         sequences: List[MoveSequence] = [MoveSequence() for _ in range(len(moves))]
         for move, sequence in zip(moves, sequences):
             # Set max transfers and battles for each sequence
@@ -72,7 +72,7 @@ class MoveGenerator(ABC):
             if moves_type == MovesType.TransferMoves:
                 next_move, next_value = self._select_best_move(player, next_moves, board_map,
                                                                self.heuristic.evaluate)
-                if next_value > last_move_value:
+                if not isinstance(next_move, EndMove) and next_value > last_move_value:
                     return next_move, next_value
 
                 # No transfer leads to a better state.
@@ -87,7 +87,7 @@ class MoveGenerator(ABC):
             if moves_type == MovesType.BattleMoves:
                 next_move, next_value = self._select_best_move(player, next_moves, board_map,
                                                                self.heuristic.evaluate)
-                if next_value > last_move_value:
+                if not isinstance(next_move, EndMove) and next_value > last_move_value:
                     return next_move, next_value
 
                 # No battles leads to a better state so try transfers instead.
@@ -165,8 +165,8 @@ class FilteringMoveGenerator(MoveGenerator):
         self.battle_moves: List[BattleMove] = []
         self.transfer_moves: List[TransferMove] = []
 
-    def generate_moves(self, player: int, board_map: Map, transfers_allowed: bool, battles_allowed: bool) -> (
-            List[Move], MovesType):
+    def generate_moves(self, player: int, board_map: Map, transfers_allowed: bool, battles_allowed: bool,
+                       transfer_priority=True) -> (List[Move], MovesType):
         # Clear moves from last time
         self.battle_moves.clear()
         self.transfer_moves.clear()
@@ -176,7 +176,7 @@ class FilteringMoveGenerator(MoveGenerator):
             self.transfer_moves = self._generate_sensible_transfers(player, board_map)
             moves_type = MovesType.TransferMoves
 
-        if len(self.transfer_moves) == 0 and battles_allowed:
+        if (not transfer_priority or len(self.transfer_moves) == 0) and battles_allowed:
             moves_type = MovesType.BattleMoves
             # If there are no transfers, then resort to battles.
             self.battle_moves = self._generate_sensible_battles(player, board_map)
@@ -214,8 +214,10 @@ class FilteringMoveGenerator(MoveGenerator):
         moves = []
         for i in range(len(targets)):
             transfer_size = transfer_dice[i]
+            if transfer_size == 0:
+                continue
             moves.append(TransferMove(sources[i], targets[i], transfer_size,
-                                      transfer_size + 0.5 * dist_strength[targets[i]]))
+                                      transfer_size * dist_strength[targets[i]] / self.max_border_distance))
         return moves
 
     def _generate_sensible_battles(self, player: int, board_map: Map) -> List[BattleMove]:

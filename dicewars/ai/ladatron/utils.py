@@ -35,7 +35,7 @@ def border_distance(player: int, board_map: Map, max_depth: int) -> np.ndarray:
     return dist
 
 
-def normalize_to_range(tensor, range, min_value=None, max_value=None):
+def normalize_to_range(tensor, range, min_value=None, max_value=None, default_nan_value=0):
     """
     Normalizes the tensor to the given range.
     The lower bound of the range is mapped to the minimal value of the given tensor.
@@ -64,10 +64,12 @@ def normalize_to_range(tensor, range, min_value=None, max_value=None):
     else:
         max_value = np.array(max_value, dtype=tensor.dtype)
 
-    tensor_zero_one = (tensor - min_value) / (max_value - min_value)
+    a = tensor - min_value
+    b = max_value - min_value
+    tensor_zero_one_with_nan = np.where(b != 0, np.divide(a, b), default_nan_value)
 
     range_width = range[1] - range[0]
-    tensor_normalized = tensor_zero_one * range_width + range[0]
+    tensor_normalized = tensor_zero_one_with_nan * range_width + range[0]
     return tensor_normalized
 
 
