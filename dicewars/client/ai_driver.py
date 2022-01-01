@@ -1,15 +1,14 @@
 import copy
 import json
-import os
-from json.decoder import JSONDecodeError
 import logging
+import os
+import pickle
 import signal
 import uuid
-import pickle
-import numpy as np
+from json.decoder import JSONDecodeError
 
-from .timers import FischerTimer, FixedTimer
 from dicewars.ai.ladatron.map import Map
+from .timers import FischerTimer, FixedTimer
 
 
 def get_features(board):
@@ -172,11 +171,14 @@ class AIDriver:
 
         elif msg['type'] == 'game_end':
             self.logger.info("Player {} has won".format(msg['winner']))
-            heuristic_max = 1 if msg['winner'] == self.player_name else -1
-            if heuristic_max == -1:
+            # heuristic_max = 1 if msg['winner'] == self.player_name else -1
+            if msg['winner'] != self.player_name:
                 self.board_states.append(create_lose_board(self.board_states[-1], msg['winner']))
-            state_val = np.linspace(0, heuristic_max, len(self.board_states))
-            data = list(zip(state_val, self.board_states))
+            winner = msg['winner']
+            player = self.player_name
+            # state_val = np.linspace(0, heuristic_max, len(self.board_states))
+            # data = list(zip(state_val, self.board_states))
+            data = (player, winner, self.board_states)
             # Save game boards to a file
             os.makedirs('dataset', exist_ok=True)
             with open(f'dataset/{self.player_name}_{uuid.uuid1()}.pkl', 'wb') as f:

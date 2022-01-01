@@ -56,13 +56,13 @@ def normalize_to_range(tensor, range, min_value=None, max_value=None):
     """
 
     if min_value is None:
-        min_value = torch.min(tensor)
+        min_value = np.min(tensor)
     else:
-        min_value = torch.tensor(min_value)
+        min_value = np.array(min_value, dtype=tensor.dtype)
     if max_value is None:
         max_value = torch.max(tensor)
     else:
-        max_value = torch.tensor(max_value)
+        max_value = np.array(max_value, dtype=tensor.dtype)
 
     tensor_zero_one = (tensor - min_value) / (max_value - min_value)
 
