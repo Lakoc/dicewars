@@ -87,5 +87,5 @@ if __name__ == "__main__":
 
     model = Network(input_features=5, output_features=1)
     trainer = Trainer()
-    trainer.train(model, 100, train_data_loader, valid_data_loader,
-                  'dicewars/ai/ladatron/ml/models', verbose=False, log_interval=100, lr=0.005)
+    trainer.train(model, 500, train_data_loader, valid_data_loader,
+                  'dicewars/ai/ladatron/ml/models', verbose=False, log_interval=100, lr=0.001)

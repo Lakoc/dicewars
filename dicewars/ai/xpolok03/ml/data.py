@@ -64,7 +64,7 @@ class DataGenerator(torch.utils.data.Dataset):
             with open(file_path, 'rb') as file:
                 try:
                     player, winner, maps = pickle.load(file)
-                except EOFError:
+                except:
                     os.remove(file_path)
             # heuristics = [state[0] for state in content]
             # maps = [state[1] for state in content]
@@ -74,16 +74,16 @@ class DataGenerator(torch.utils.data.Dataset):
         return players, winners, all_maps
 
     def _create_heuristic(self, player: int, winner: int, length: int):
-        if player == winner:
-            return np.full(length, fill_value=1)
-        else:
-            return np.full(length, fill_value=-1)
-        # winner_space = np.linspace(0, 1, length)
-        # looser_space = np.linspace(0, -1, length)
         # if player == winner:
-        #     return winner_space
+        #     return np.full(length, fill_value=1)
         # else:
-        #     return looser_space
+        #     return np.full(length, fill_value=-1)
+        winner_space = np.linspace(0, 1, length)
+        looser_space = np.linspace(0, -1, length)
+        if player == winner:
+            return winner_space
+        else:
+            return looser_space
 
     def __len__(self):
         return self.heuristics.shape[0]
@@ -105,16 +105,16 @@ def extract_features(player, maps: List[Map], distance_from_border_limit) -> np.
     player_areas = np.sum(player_areas_mask, axis=1)
     opponent_areas = np.sum(opponent_areas_mask, axis=1)
 
-    player_areas_norm = normalize_to_range(player_areas, [-1, 1], min_value=0, max_value=max_areas)
-    opponent_areas_norm = normalize_to_range(opponent_areas, [-1, 1], min_value=0, max_value=max_areas)
+    player_areas_norm = normalize_to_range(player_areas, [0, 1], min_value=0, max_value=max_areas)
+    opponent_areas_norm = normalize_to_range(opponent_areas, [0, 1], min_value=0, max_value=max_areas)
 
     player_dice_mask = board_states[:, :, 1] * player_areas_mask
     player_dice = np.sum(player_dice_mask, axis=1)
     opponent_dice_mask = board_states[:, :, 1] * opponent_areas_mask
     opponent_dice = np.sum(opponent_dice_mask, axis=1)
 
-    player_dice_norm = normalize_to_range(player_dice, [-1, 1], min_value=0, max_value=max_dice)
-    opponent_dice_norm = normalize_to_range(opponent_dice, [-1, 1], min_value=0, max_value=max_dice)
+    player_dice_norm = normalize_to_range(player_dice, [0, 1], min_value=0, max_value=max_dice)
+    opponent_dice_norm = normalize_to_range(opponent_dice, [0, 1], min_value=0, max_value=max_dice)
 
     neighbourhood_with_opponents = neighborhoods * player_areas_mask[:, :, np.newaxis] * \
                                    opponent_areas_mask[:, np.newaxis, :]
