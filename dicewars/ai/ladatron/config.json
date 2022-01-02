@@ -12,7 +12,7 @@
   },
   "general": {
     "max_border_distance": 5,
-    "initial_max_battles": 20,
+    "initial_max_battles": 15,
     "initial_max_depth": 1
   }
 }
