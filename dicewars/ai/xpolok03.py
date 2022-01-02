@@ -34,7 +34,7 @@ class AI:
     def ai_turn(self, board: Board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         if len(self.moves) == 0:
             self.update_parameters(time_left)
-            start_time = time.time()
+            # start_time = time.time()
             remaining_transfers = self.max_transfers - nb_transfers_this_turn
             remaining_attacks = self.max_battles - nb_moves_this_turn + nb_transfers_this_turn
 
@@ -42,8 +42,8 @@ class AI:
             self.moves = self.search.search(self.player_name, self.opponents, board_map, depth=self.depth,
                                             remaining_transfers=remaining_transfers,
                                             remaining_attacks=remaining_attacks)
-            self.logger.info(F"Number of moves found: {len(self.moves)}")
-            self.logger.info(F"Time it took to compute the moves: {time.time() - start_time}")
+            # self.logger.info(F"Number of moves found: {len(self.moves)}")
+            # self.logger.info(F"Time it took to compute the moves: {time.time() - start_time}")
 
         move: Move = self.moves.pop(0)
         while not self._is_valid_move(move, board):
