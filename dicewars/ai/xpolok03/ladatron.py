@@ -2,9 +2,9 @@ import logging
 import time
 
 from dicewars.ai.xpolok03.brs import BestReplySearch
-from dicewars.ai.xpolok03.heuristics import HardcodedHeuristic, NeuralNeuristic
+from dicewars.ai.xpolok03.heuristics import NeuralNeuristic
 from dicewars.ai.xpolok03.map import Map
-from dicewars.ai.xpolok03.move_generators import FilteringMoveGenerator, LessDumbMoveGenerator, Move
+from dicewars.ai.xpolok03.move_generators import FilteringMoveGenerator, Move
 from dicewars.ai.xpolok03.moves import BattleMove, EndMove, MoveSequence, TransferMove
 from dicewars.ai.xpolok03.utils import get_config
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
@@ -19,20 +19,21 @@ class AI:
         self.logger = logging.getLogger('AI')
         self.max_transfers = max_transfers
 
-        config = get_config()
-        self.max_battles = config['general']['initial_max_battles']
+        self.config = get_config()
+        self.max_battles = self.config['general']['initial_max_battles']
+        self.last_time_left = 10
 
-        self.depth = config['general']['initial_max_depth']
+        self.depth = self.config['general']['initial_max_depth']
         self.opponents = list(filter(lambda x: x != self.player_name, players_order))
 
-        heuristic = NeuralNeuristic(config)
-        self.search = BestReplySearch(heuristic, FilteringMoveGenerator(heuristic), self.max_transfers, self.max_battles)
+        heuristic = NeuralNeuristic(self.config)
+        self.search = BestReplySearch(heuristic, FilteringMoveGenerator(heuristic), self.max_transfers,
+                                      self.max_battles)
         self.moves: MoveSequence = MoveSequence()
-
-        # TODO: Precompute as many moves as possible. We got 10 seconds in the constructor.
 
     def ai_turn(self, board: Board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         if len(self.moves) == 0:
+            self.update_parameters(time_left)
             start_time = time.time()
             remaining_transfers = self.max_transfers - nb_transfers_this_turn
             remaining_attacks = self.max_battles - nb_moves_this_turn + nb_transfers_this_turn
@@ -48,6 +49,27 @@ class AI:
         while not self._is_valid_move(move, board):
             move: Move = self.moves.pop(0)
         return self._apply_move(move)
+
+    def update_parameters(self, time_left):
+        if time_left > 20:
+            if self.depth != 2:
+                self.depth = 2
+                self.max_battles = self.config['general']['initial_max_battles']
+            else:
+                if self.last_time_left < time_left:
+                    self.max_battles += 1
+                else:
+                    self.max_battles -= 1
+        else:
+            if self.depth != 1:
+                self.depth = 1
+                self.max_battles = self.config['general']['initial_max_battles']
+            else:
+                if self.last_time_left < time_left:
+                    self.max_battles += 1
+                else:
+                    self.max_battles -= 1
+        self.logger.info(F"Depth {self.depth}, Max battles {self.max_battles}, Last time left {self.last_time_left:.2f} Time left {time_left:.2f}")
 
     def _is_valid_move(self, move: Move, board: Board) -> bool:
         if isinstance(move, BattleMove):
