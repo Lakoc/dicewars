@@ -10,15 +10,15 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import random_split
 
 from dicewars.ai.xpolok03.map import Map
-from dicewars.ai.xpolok03.utils import border_distance, normalize_to_range
+from dicewars.ai.xpolok03.utils import get_config, normalize_to_range
 
 
 class DataGenerator(torch.utils.data.Dataset):
 
-    def __init__(self, path: str, dataset_type: str):
+    def __init__(self, path: str, dataset_type: str, config):
         self.path = path
         self.dataset_type = dataset_type
-        self.distance_from_border_limit = 5
+        self.distance_from_border_limit = config['general']['max_border_distance']
 
         file_paths = self._get_file_paths()
         train_proportion = 0.8
@@ -37,7 +37,7 @@ class DataGenerator(torch.utils.data.Dataset):
         all_features = []
         all_heuristics = []
         for player, winner, maps in zip(players, winners, all_maps):
-            features = extract_features(player, maps, self.distance_from_border_limit)
+            features = extract_features(player, maps)
             all_features.append(features)
             heuristics = self._create_heuristic(player, winner, len(maps))
             all_heuristics.append(heuristics)
@@ -92,7 +92,7 @@ class DataGenerator(torch.utils.data.Dataset):
         return self.features[idx], self.heuristics[idx]
 
 
-def extract_features(player, maps: List[Map], distance_from_border_limit) -> np.ndarray:
+def extract_features(player, maps: List[Map]) -> np.ndarray:
     board_states = np.array([board_map.board_state for board_map in maps])
     neighborhoods = np.array([board_map.neighborhood_m for board_map in maps])
 
@@ -158,17 +158,17 @@ def extract_features(player, maps: List[Map], distance_from_border_limit) -> np.
     return features
 
 
-def get_train_data_loader(batch_size=64):
-    generator = DataGenerator('dataset', 'train')
+def get_train_data_loader(batch_size, config):
+    generator = DataGenerator('dataset', 'train', config)
     return DataLoader(generator, batch_size=batch_size, shuffle=True)
 
 
-def get_test_data_loader(batch_size=64):
-    generator = DataGenerator('dataset', 'valid')
+def get_test_data_loader(batch_size, config):
+    generator = DataGenerator('dataset', 'valid', config)
     return DataLoader(generator, batch_size=batch_size, shuffle=False)
 
 
 if __name__ == "__main__":
-    loader = get_test_data_loader(batch_size=16)
+    loader = get_test_data_loader(batch_size=16, config=get_config())
     features, heuristics = next(iter(loader))
     print(features.shape, heuristics.shape)

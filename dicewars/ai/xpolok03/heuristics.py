@@ -27,8 +27,8 @@ class HardcodedDumbHeuristic(Evaluation):
 
 class HardcodedHeuristic(Evaluation):
 
-    def __init__(self):
-        self.distance_from_border_limit = 5
+    def __init__(self, config):
+        self.distance_from_border_limit = config['general']['max_border_distance']
 
     def evaluate(self, player: int, board_map: Map) -> float:
         player_areas = board_map.board_state[board_map.board_state[:, 0] == player]
@@ -66,15 +66,15 @@ def weight_dice(player: int, board_map: Map, distance_from_border_limit: int):
 
 class NeuralNeuristic(Evaluation):
 
-    def __init__(self):
-        self.model = Network(input_features=5, output_features=1)
-        self.model.load_state_dict(torch.load('dicewars/ai/xpolok03/ml/models/model_40_end.weights'))
-        self.distance_from_border_limit = 5
+    def __init__(self, config):
+        self.model = Network(input_features=config['model']['in_features'], output_features=config['model']['out_features'])
+        self.model.load_state_dict(torch.load(config['model']['weights_path']))
+        self.distance_from_border_limit = config['general']['max_border_distance']
 
     def evaluate(self, player: int, board_map: Map) -> float:
         weighted_dice = weight_dice(player, board_map, self.distance_from_border_limit)
         with torch.no_grad():
-            features = extract_features(player, [board_map], distance_from_border_limit=5)
+            features = extract_features(player, [board_map])
             heuristic = self.model(torch.from_numpy(features).float())
             return 32768 * heuristic[0].numpy() + weighted_dice
 

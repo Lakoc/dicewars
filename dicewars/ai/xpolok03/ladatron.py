@@ -6,6 +6,7 @@ from dicewars.ai.xpolok03.heuristics import HardcodedHeuristic, NeuralNeuristic
 from dicewars.ai.xpolok03.map import Map
 from dicewars.ai.xpolok03.move_generators import FilteringMoveGenerator, LessDumbMoveGenerator, Move
 from dicewars.ai.xpolok03.moves import BattleMove, EndMove, MoveSequence, TransferMove
+from dicewars.ai.xpolok03.utils import get_config
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from dicewars.client.game.area import Area
 from dicewars.client.game.board import Board
@@ -17,12 +18,14 @@ class AI:
         self.player_name = player_name
         self.logger = logging.getLogger('AI')
         self.max_transfers = max_transfers
-        self.max_battles = 15
 
-        self.depth = 1
+        config = get_config()
+        self.max_battles = config['general']['initial_max_battles']
+
+        self.depth = config['general']['initial_max_depth']
         self.opponents = list(filter(lambda x: x != self.player_name, players_order))
 
-        heuristic = NeuralNeuristic()
+        heuristic = NeuralNeuristic(config)
         self.search = BestReplySearch(heuristic, FilteringMoveGenerator(heuristic), self.max_transfers, self.max_battles)
         self.moves: MoveSequence = MoveSequence()
 

@@ -1,5 +1,7 @@
+import json
 import os
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import torch
@@ -92,3 +94,11 @@ def make_timestamped_dir(path: str) -> str:
     subdir = os.path.join(path, timestamp)
     os.makedirs(subdir, exist_ok=True)
     return subdir
+
+
+def get_config() -> Any:
+    """
+    Reads a configuration file in json format and returns a dict representation.
+    """
+    with open('dicewars/ai/xpolok03/config.json', 'r') as config_file:
+        return json.load(config_file)

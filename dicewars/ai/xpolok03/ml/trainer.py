@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from dicewars.ai.xpolok03.ml.data import get_test_data_loader, get_train_data_loader
 from dicewars.ai.xpolok03.ml.losses import SingleGPULossCompute
 from dicewars.ai.xpolok03.ml.model import Network
-from dicewars.ai.xpolok03.utils import make_timestamped_dir
+from dicewars.ai.xpolok03.utils import get_config, make_timestamped_dir
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -65,10 +65,10 @@ class Trainer():
         for epoch in range(num_epochs):
             model.train()
             train_loss = self.run_epoch(train_iter, model, SingleGPULossCompute(model, criterion, optimizer), verbose,
-                           log_interval, epoch, 'train')
+                                        log_interval, epoch, 'train')
             model.eval()
             valid_loss = self.run_epoch(valid_iter, model, SingleGPULossCompute(model, criterion), verbose,
-                           log_interval, epoch, 'valid')
+                                        log_interval, epoch, 'valid')
 
             print('-' * 59)
             print('| end of epoch {:3d} | time: {:5.2f}s | train loss: {:.5f} | valid loss: {:.5f}'
@@ -81,11 +81,12 @@ class Trainer():
 
 
 if __name__ == "__main__":
-    batch_size = 16
-    train_data_loader = get_train_data_loader(batch_size=batch_size)
-    valid_data_loader = get_test_data_loader(batch_size=batch_size)
+    config = get_config()
+    batch_size = config['train']['batch_size']
+    train_data_loader = get_train_data_loader(batch_size, config)
+    valid_data_loader = get_test_data_loader(batch_size, config)
 
-    model = Network(input_features=5, output_features=1)
+    model = Network(input_features=config['model']['in_features'], output_features=config['model']['out_features'])
     trainer = Trainer()
-    trainer.train(model, 500, train_data_loader, valid_data_loader,
-                  'dicewars/ai/xpolok03/ml/models', verbose=False, log_interval=100, lr=0.001)
+    trainer.train(model, config['train']['epochs'], train_data_loader, valid_data_loader,
+                  config['train']['save_models_path'], verbose=False, log_interval=100, lr=config['train']['lr'])

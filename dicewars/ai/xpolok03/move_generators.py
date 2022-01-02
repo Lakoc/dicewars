@@ -35,6 +35,8 @@ class MoveGenerator(ABC):
         moves, moves_type = self.generate_moves(player, board_map,
                                                 transfers_allowed=(max_transfers > 0),
                                                 battles_allowed=(max_battles > 0), transfer_priority=True)
+        # if moves_type != MovesType.EndMoveOnly:
+        #    moves.pop(0)  # Remove EndMove.
         sequences: List[MoveSequence] = [MoveSequence() for _ in range(len(moves))]
         for move, sequence in zip(moves, sequences):
             # Set max transfers and battles for each sequence
