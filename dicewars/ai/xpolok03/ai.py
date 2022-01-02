@@ -1,12 +1,11 @@
 import logging
-import time
 
-from dicewars.ai.ladatron.brs import BestReplySearch
-from dicewars.ai.ladatron.heuristics import NeuralNeuristic
-from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.move_generators import FilteringMoveGenerator, Move
-from dicewars.ai.ladatron.moves import BattleMove, EndMove, MoveSequence, TransferMove
-from dicewars.ai.ladatron.utils import get_config
+from dicewars.ai.xpolok03.search.brs import BestReplySearch
+from dicewars.ai.xpolok03.search.heuristics import NeuralNeuristic
+from dicewars.ai.xpolok03.search.map import Map
+from dicewars.ai.xpolok03.search.move_generators import FilteringMoveGenerator, Move
+from dicewars.ai.xpolok03.search.moves import BattleMove, EndMove, MoveSequence, TransferMove
+from dicewars.ai.xpolok03.search.utils import get_config
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from dicewars.client.game.area import Area
 from dicewars.client.game.board import Board
@@ -69,7 +68,6 @@ class AI:
                     self.max_battles += 1
                 else:
                     self.max_battles -= 1
-        self.logger.info(F"Depth {self.depth}, Max battles {self.max_battles}, Last time left {self.last_time_left:.2f} Time left {time_left:.2f}")
 
     def _is_valid_move(self, move: Move, board: Board) -> bool:
         if isinstance(move, BattleMove):

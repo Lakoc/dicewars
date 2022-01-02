@@ -5,10 +5,10 @@ import torch
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
-from dicewars.ai.ladatron.map import Map
-from dicewars.ai.ladatron.ml.data import extract_features
-from dicewars.ai.ladatron.ml.model import Network
-from dicewars.ai.ladatron.utils import border_distance
+from dicewars.ai.xpolok03.search.map import Map
+from dicewars.ai.xpolok03.ml.data import extract_features
+from dicewars.ai.xpolok03.ml.model import Network
+from dicewars.ai.xpolok03.search.utils import border_distance
 
 class Evaluation(ABC):
 
