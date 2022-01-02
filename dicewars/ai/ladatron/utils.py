@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from dicewars.ai.xpolok03.map import Map
+from dicewars.ai.ladatron.map import Map
 
 
 def border_distance(player: int, board_map: Map, max_depth: int) -> np.ndarray:
@@ -100,5 +100,5 @@ def get_config() -> Any:
     """
     Reads a configuration file in json format and returns a dict representation.
     """
-    with open('dicewars/ai/xpolok03/config.json', 'r') as config_file:
+    with open('dicewars/ai/ladatron/config.json', 'r') as config_file:
         return json.load(config_file)

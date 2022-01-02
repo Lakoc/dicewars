@@ -46,14 +46,14 @@ PLAYING_AIs = [
     'dt.stei',
     # 'dt.wpm_d',
     # 'dt.wpm_s',
-    'dt.wpm_c',
-    'kb.sdc_post_at',
-    'kb.sdc_post_dt',
+    # 'dt.wpm_c',
+    # 'kb.sdc_post_at',
+    # 'kb.sdc_post_dt',
     'kb.sdc_pre_at',
     'kb.stei_adt',
     'kb.stei_at',
     'kb.stei_dt',
-    'xpolok03.ladatron'
+    'xpolok03'
     # 'kb.xlogin42',
     # 'kb.xlogin00',
 ]

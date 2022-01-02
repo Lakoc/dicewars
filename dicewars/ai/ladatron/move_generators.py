@@ -5,10 +5,10 @@ from typing import List
 
 import numpy as np
 
-from dicewars.ai.xpolok03.heuristics import Evaluation
-from dicewars.ai.xpolok03.map import Map
-from dicewars.ai.xpolok03.moves import BattleMove, EndMove, Move, MoveSequence, TransferMove
-from dicewars.ai.xpolok03.utils import border_distance
+from dicewars.ai.ladatron.heuristics import Evaluation
+from dicewars.ai.ladatron.map import Map
+from dicewars.ai.ladatron.moves import BattleMove, EndMove, Move, MoveSequence, TransferMove
+from dicewars.ai.ladatron.utils import border_distance
 
 
 class MovesType(Enum):
@@ -164,6 +164,8 @@ class FilteringMoveGenerator(MoveGenerator):
         self.max_transfers = max_transfers
         self.max_border_distance = max_border_distance
 
+        self.probs = self.get_success_probabilities()
+
         self.battle_moves: List[BattleMove] = []
         self.transfer_moves: List[TransferMove] = []
 
@@ -234,7 +236,8 @@ class FilteringMoveGenerator(MoveGenerator):
                     dice_diff = source_dice - target_dice
 
                     if dice_diff >= 1 or source_dice == 8:
-                        moves.append(BattleMove(source_area, neighbour_area, dice_diff))
+                        prob = self.probs[source_dice, target_dice]
+                        moves.append(BattleMove(source_area, neighbour_area, dice_diff, prob))
         return moves
 
     def _filter_moves(self):
@@ -245,3 +248,21 @@ class FilteringMoveGenerator(MoveGenerator):
         # Select the best N transfers
         self.transfer_moves.sort(reverse=True)
         self.transfer_moves = self.transfer_moves[:self.max_transfers]
+
+    def get_success_probabilities(self):
+        """
+        Each value in the matrix contains the probability that, the the row area will win
+        over a column area during an attack attacked (row area attacks column area).
+        The first row and column are all zeros because the areas's dice start at 1.
+        The second row is zero because an area with a single dice cannot attack.
+        """
+        return np.array(
+            [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ],
+             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ],
+             [0.0, 0.83796296, 0.44367284, 0.15200617, 0.03587963, 0.00610497, 0.00076625, 0.00007095, 0.00000473, ],
+             [0.0, 0.97299383, 0.77854938, 0.45357510, 0.19170096, 0.06071269, 0.01487860, 0.00288998, 0.00045192, ],
+             [0.0, 0.99729938, 0.93923611, 0.74283050, 0.45952825, 0.22044235, 0.08342284, 0.02544975, 0.00637948, ],
+             [0.0, 0.99984997, 0.98794010, 0.90934714, 0.71807842, 0.46365360, 0.24244910, 0.10362599, 0.03674187, ],
+             [0.0, 0.99999643, 0.99821685, 0.97529981, 0.88395347, 0.69961639, 0.46673060, 0.25998382, 0.12150697, ],
+             [0.0, 1.00000000, 0.99980134, 0.99466336, 0.96153588, 0.86237652, 0.68516499, 0.46913917, 0.27437553, ],
+             [0.0, 1.00000000, 0.99998345, 0.99906917, 0.98953404, 0.94773146, 0.84387382, 0.67345564, 0.47109073, ]])

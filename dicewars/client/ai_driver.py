@@ -7,7 +7,7 @@ import signal
 import uuid
 from json.decoder import JSONDecodeError
 
-from dicewars.ai.xpolok03.map import Map
+from dicewars.ai.ladatron.map import Map
 from .timers import FischerTimer, FixedTimer
 
 

@@ -4,10 +4,10 @@ import time
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
-from dicewars.ai.xpolok03.ml.data import get_test_data_loader, get_train_data_loader
-from dicewars.ai.xpolok03.ml.losses import SingleGPULossCompute
-from dicewars.ai.xpolok03.ml.model import Network
-from dicewars.ai.xpolok03.utils import get_config, make_timestamped_dir
+from dicewars.ai.ladatron.ml.data import get_test_data_loader, get_train_data_loader
+from dicewars.ai.ladatron.ml.losses import SingleGPULossCompute
+from dicewars.ai.ladatron.ml.model import Network
+from dicewars.ai.ladatron.utils import get_config, make_timestamped_dir
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
